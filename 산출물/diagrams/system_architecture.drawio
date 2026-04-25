@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="2026-04-25" agent="Claude" version="24.0">
+  <diagram id="sys-arch" name="시스템 구성도">
+    <mxGraphModel dx="1200" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- ===== LAYER BACKGROUNDS ===== -->
+
+        <!-- 프론트엔드 레이어 -->
+        <mxCell id="layer_frontend" value="프론트엔드 (Next.js)" style="rounded=1;whiteSpace=wrap;fillColor=#EEF4FB;strokeColor=#4A86C8;strokeWidth=2;dashed=1;verticalAlign=top;fontStyle=1;fontSize=13;fontFamily=AppleGothic;spacingTop=5;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="100" y="40" width="1400" height="130" as="geometry"/>
+        </mxCell>
+
+        <!-- 백엔드 API 레이어 -->
+        <mxCell id="layer_backend" value="백엔드 API (FastAPI)" style="rounded=1;whiteSpace=wrap;fillColor=#FDF2F2;strokeColor=#C84A4A;strokeWidth=2;dashed=1;verticalAlign=top;fontStyle=1;fontSize=13;fontFamily=AppleGothic;spacingTop=5;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="100" y="220" width="1400" height="130" as="geometry"/>
+        </mxCell>
+
+        <!-- AI 처리 영역 레이어 -->
+        <mxCell id="layer_ai" value="AI 처리 영역" style="rounded=1;whiteSpace=wrap;fillColor=#F3EEF8;strokeColor=#7B57A0;strokeWidth=2;dashed=1;verticalAlign=top;fontStyle=1;fontSize=13;fontFamily=AppleGothic;spacingTop=5;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="100" y="400" width="1400" height="130" as="geometry"/>
+        </mxCell>
+
+        <!-- 외부 서비스 레이어 -->
+        <mxCell id="layer_external" value="외부 서비스" style="rounded=1;whiteSpace=wrap;fillColor=#FEF6F0;strokeColor=#B85C38;strokeWidth=2;dashed=1;verticalAlign=top;fontStyle=1;fontSize=13;fontFamily=AppleGothic;spacingTop=5;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="100" y="580" width="1400" height="130" as="geometry"/>
+        </mxCell>
+
+        <!-- 데이터 레이어 -->
+        <mxCell id="layer_data" value="데이터 레이어" style="rounded=1;whiteSpace=wrap;fillColor=#F5F5F5;strokeColor=#666666;strokeWidth=2;dashed=1;verticalAlign=top;fontStyle=1;fontSize=13;fontFamily=AppleGothic;spacingTop=5;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="100" y="760" width="1400" height="130" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== NODES ===== -->
+
+        <!-- 프론트엔드 -->
+        <mxCell id="shop" value="샘플 쇼핑몰&#xa;(+FAB 미니패널)&#xa;─────────────&#xa;상품/리뷰 표시&#xa;FAB로 단건 생성" style="rounded=1;whiteSpace=wrap;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;fontFamily=AppleGothic;spacingTop=2;" vertex="1" parent="1">
+          <mxGeometry x="180" y="70" width="240" height="85" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="dashboard" value="에이전트 대시보드&#xa;─────────────&#xa;톤 설정 / 일괄 생성&#xa;히스토리 / 운영자 메인 공간" style="rounded=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;fontFamily=AppleGothic;spacingTop=2;" vertex="1" parent="1">
+          <mxGeometry x="680" y="70" width="240" height="85" as="geometry"/>
+        </mxCell>
+
+        <!-- 백엔드 API -->
+        <mxCell id="shop_api" value="쇼핑몰 API&#xa;─────────────&#xa;상품/리뷰/대댓글 CRUD&#xa;데이터 조회 및 게시 처리" style="rounded=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;fontFamily=AppleGothic;spacingTop=2;" vertex="1" parent="1">
+          <mxGeometry x="180" y="250" width="240" height="85" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="agent_api" value="에이전트 API (오케스트레이터)&#xa;─────────────&#xa;전체 흐름 조율&#xa;톤 관리 → 감성분류 → 생성 → 게시" style="rounded=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;fontFamily=AppleGothic;spacingTop=2;" vertex="1" parent="1">
+          <mxGeometry x="680" y="250" width="280" height="85" as="geometry"/>
+        </mxCell>
+
+        <!-- AI 처리 -->
+        <mxCell id="sentiment" value="감성 분류 모듈&#xa;─────────────&#xa;리뷰 감성 판별&#xa;긍정/부정/문의/기타" style="rounded=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;fontFamily=AppleGothic;spacingTop=2;" vertex="1" parent="1">
+          <mxGeometry x="480" y="430" width="220" height="85" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="prompt_engine" value="프롬프트 엔진&#xa;─────────────&#xa;톤 + 감성 + 리뷰 조립&#xa;최적 프롬프트 생성" style="rounded=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;fontFamily=AppleGothic;spacingTop=2;" vertex="1" parent="1">
+          <mxGeometry x="900" y="430" width="220" height="85" as="geometry"/>
+        </mxCell>
+
+        <!-- 외부 서비스 -->
+        <mxCell id="claude" value="Claude API&#xa;─────────────&#xa;Haiku: 감성 분류&#xa;Sonnet: 대댓글 생성" style="shape=process;whiteSpace=wrap;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;fontFamily=AppleGothic;spacingTop=2;" vertex="1" parent="1">
+          <mxGeometry x="580" y="610" width="240" height="85" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="kaggle" value="Kaggle 데이터셋&#xa;─────────────&#xa;PM이 수동 다운로드&#xa;상품/리뷰 초기 데이터" style="shape=document;whiteSpace=wrap;fillColor=#FCE5CD;strokeColor=#D6B656;fontSize=11;fontFamily=AppleGothic;spacingTop=2;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="610" width="220" height="85" as="geometry"/>
+        </mxCell>
+
+        <!-- 데이터 레이어 -->
+        <mxCell id="db" value="SQLite DB&#xa;─────────────&#xa;상품 / 리뷰 / 대댓글&#xa;톤 프로필 / 히스토리" style="shape=cylinder3;whiteSpace=wrap;fillColor=#E8E8E8;strokeColor=#666666;fontSize=11;fontFamily=AppleGothic;spacingTop=2;size=10;" vertex="1" parent="1">
+          <mxGeometry x="580" y="790" width="240" height="85" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== MAIN FLOW EDGES (굵은 실선) ===== -->
+
+        <!-- 대시보드 → 에이전트 API -->
+        <mxCell id="e1" value="톤 설정 / 생성 요청&#xa;히스토리 조회" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#333333;fontSize=10;fontFamily=AppleGothic;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="dashboard" target="agent_api" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 에이전트 API → 감성 분류 -->
+        <mxCell id="e2" value="리뷰 텍스트" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#333333;fontSize=10;fontFamily=AppleGothic;exitX=0.3;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="agent_api" target="sentiment" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 에이전트 API → 프롬프트 엔진 -->
+        <mxCell id="e3" value="톤 프로필 +&#xa;감성 라벨 + 리뷰" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#333333;fontSize=10;fontFamily=AppleGothic;exitX=0.7;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="agent_api" target="prompt_engine" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 감성 분류 → Claude -->
+        <mxCell id="e4" value="분류 요청" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#333333;fontSize=10;fontFamily=AppleGothic;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.3;entryY=0;entryDx=0;entryDy=0;" edge="1" source="sentiment" target="claude" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 프롬프트 엔진 → Claude -->
+        <mxCell id="e5" value="생성 프롬프트" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#333333;fontSize=10;fontFamily=AppleGothic;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.7;entryY=0;entryDx=0;entryDy=0;" edge="1" source="prompt_engine" target="claude" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== AUXILIARY FLOW EDGES (가는 점선) ===== -->
+
+        <!-- 쇼핑몰 → 쇼핑몰 API -->
+        <mxCell id="e6" value="리뷰 데이터 조회&#xa;대댓글 게시 요청" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=1.5;strokeColor=#888888;dashed=1;fontSize=9;fontFamily=AppleGothic;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="shop" target="shop_api" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 에이전트 API → 쇼핑몰 API (게시) -->
+        <mxCell id="e7" value="확정된 대댓글 → 게시" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=1.5;strokeColor=#888888;dashed=1;fontSize=9;fontFamily=AppleGothic;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="agent_api" target="shop_api" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 쇼핑몰 API → DB -->
+        <mxCell id="e8" value="상품/리뷰/대댓글 CRUD" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=1.5;strokeColor=#888888;dashed=1;fontSize=9;fontFamily=AppleGothic;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.3;entryY=0;entryDx=0;entryDy=0;" edge="1" source="shop_api" target="db" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Kaggle → DB -->
+        <mxCell id="e9" value="초기 데이터 로드" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=1.5;strokeColor=#888888;dashed=1;fontSize=9;fontFamily=AppleGothic;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.7;entryY=0;entryDx=0;entryDy=0;" edge="1" source="kaggle" target="db" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Claude → DB (결과 저장) -->
+        <mxCell id="e10" value="생성 결과 저장" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=1.5;strokeColor=#888888;dashed=1;fontSize=9;fontFamily=AppleGothic;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="claude" target="db" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

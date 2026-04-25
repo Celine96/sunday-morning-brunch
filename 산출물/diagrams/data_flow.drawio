@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="2026-04-25" agent="Claude" version="24.0">
+  <diagram id="data-flow" name="데이터 흐름도">
+    <mxGraphModel dx="1200" dy="1400" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="1800" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- ===== 입력 주체 ===== -->
+        <mxCell id="dash_input" value="운영자 입력 (대시보드)&#xa;─────────────&#xa;리뷰 텍스트 직접 입력&#xa;단건 또는 일괄(CSV)" style="rounded=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;fontFamily=AppleGothic;spacingTop=2;" vertex="1" parent="1">
+          <mxGeometry x="200" y="40" width="240" height="85" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="fab_input" value="운영자 입력 (FAB 미니패널)&#xa;─────────────&#xa;쇼핑몰 리뷰에서&#xa;단건 선택 입력" style="rounded=1;whiteSpace=wrap;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;fontFamily=AppleGothic;spacingTop=2;" vertex="1" parent="1">
+          <mxGeometry x="720" y="40" width="240" height="85" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== 감성 분류 + 톤 로드 ===== -->
+        <mxCell id="sentiment" value="감성 분류 (Haiku)&#xa;─────────────&#xa;리뷰 감성 자동 판별&#xa;긍정/부정/문의/기타" style="rounded=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;fontFamily=AppleGothic;spacingTop=2;" vertex="1" parent="1">
+          <mxGeometry x="200" y="210" width="240" height="85" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="tone_load" value="톤 가이드 로드&#xa;─────────────&#xa;운영자가 설정한&#xa;브랜드 톤 프로필 조회" style="rounded=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;fontFamily=AppleGothic;spacingTop=2;" vertex="1" parent="1">
+          <mxGeometry x="720" y="210" width="240" height="85" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== 프롬프트 조립 ===== -->
+        <mxCell id="prompt" value="프롬프트 조립&#xa;─────────────&#xa;톤 + 감성 + 리뷰를&#xa;최적 프롬프트로 조합" style="rounded=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;fontFamily=AppleGothic;spacingTop=2;" vertex="1" parent="1">
+          <mxGeometry x="460" y="380" width="240" height="85" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== LLM ===== -->
+        <mxCell id="llm" value="LLM 대댓글 생성 (Sonnet)&#xa;─────────────&#xa;브랜드 톤에 맞는&#xa;맥락별 맞춤 대댓글 생성" style="shape=process;whiteSpace=wrap;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;fontFamily=AppleGothic;spacingTop=2;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="460" y="550" width="240" height="85" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== 초안 ===== -->
+        <mxCell id="draft" value="초안 생성&#xa;─────────────&#xa;AI가 생성한&#xa;대댓글 초안 표시" style="rounded=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;fontFamily=AppleGothic;spacingTop=2;" vertex="1" parent="1">
+          <mxGeometry x="460" y="720" width="240" height="85" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== 수정/확정 ===== -->
+        <mxCell id="edit" value="운영자 수정/확정&#xa;─────────────&#xa;인라인 편집 후&#xa;최종 확정" style="rounded=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;fontFamily=AppleGothic;spacingTop=2;" vertex="1" parent="1">
+          <mxGeometry x="460" y="890" width="240" height="85" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== 게시 ===== -->
+        <mxCell id="publish" value="게시 (쇼핑몰 API)&#xa;─────────────&#xa;확정된 대댓글을&#xa;샘플 쇼핑몰에 반영" style="shape=process;whiteSpace=wrap;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;fontFamily=AppleGothic;spacingTop=2;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="460" y="1060" width="240" height="85" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== 결과 ===== -->
+        <mxCell id="shop_reflect" value="쇼핑몰 대댓글 반영&#xa;─────────────&#xa;리뷰 하단에&#xa;대댓글 노출" style="rounded=1;whiteSpace=wrap;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;fontFamily=AppleGothic;spacingTop=2;" vertex="1" parent="1">
+          <mxGeometry x="200" y="1230" width="240" height="85" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="history" value="히스토리 저장&#xa;─────────────&#xa;생성/수정 이력&#xa;타임스탬프 기록" style="shape=cylinder3;whiteSpace=wrap;fillColor=#E8E8E8;strokeColor=#666666;fontSize=11;fontFamily=AppleGothic;spacingTop=2;size=10;" vertex="1" parent="1">
+          <mxGeometry x="720" y="1230" width="240" height="85" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== 메인 흐름 엣지 (굵은 실선) ===== -->
+        <mxCell id="me1" value="리뷰 텍스트" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#333333;fontSize=10;fontFamily=AppleGothic;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="dash_input" target="sentiment" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="me1b" value="리뷰 텍스트" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#333333;fontSize=10;fontFamily=AppleGothic;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.3;entryDx=0;entryDy=0;" edge="1" source="fab_input" target="sentiment" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="me2" value="감성 라벨" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#333333;fontSize=10;fontFamily=AppleGothic;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.3;entryY=0;entryDx=0;entryDy=0;" edge="1" source="sentiment" target="prompt" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="me3" value="톤 프로필" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#333333;fontSize=10;fontFamily=AppleGothic;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.7;entryY=0;entryDx=0;entryDy=0;" edge="1" source="tone_load" target="prompt" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="me4" value="완성된 프롬프트" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#333333;fontSize=10;fontFamily=AppleGothic;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="prompt" target="llm" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="me5" value="생성된 대댓글" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#333333;fontSize=10;fontFamily=AppleGothic;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="llm" target="draft" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="me6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#333333;fontSize=10;fontFamily=AppleGothic;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="draft" target="edit" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="me7" value="확정" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#333333;fontSize=10;fontFamily=AppleGothic;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="edit" target="publish" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="me8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#333333;fontSize=10;fontFamily=AppleGothic;exitX=0.3;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="publish" target="shop_reflect" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 보조: 히스토리 -->
+        <mxCell id="ae1" value="이력 저장" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=1.5;strokeColor=#888888;dashed=1;fontSize=9;fontFamily=AppleGothic;exitX=0.7;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="publish" target="history" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

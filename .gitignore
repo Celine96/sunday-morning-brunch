@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+backend/venv/
+__pycache__/
+*.pyc
+
+# Environment
+.env
+backend/.env
+
+# Database
+*.db
+
+# Build
+.next/
+frontend/.next/
+frontend/out/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Workspace
+_workspace/
+
+# Claude
+.claude/

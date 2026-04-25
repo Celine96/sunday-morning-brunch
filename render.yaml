@@ -1,0 +1,29 @@
+services:
+  # Backend (FastAPI)
+  - type: web
+    name: smb-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt && python -m app.seed
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.11.0
+
+  # Frontend (Next.js)
+  - type: web
+    name: smb-web
+    runtime: node
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          name: smb-api
+          type: web
+          property: host
+      - key: NODE_VERSION
+        value: 20.11.0

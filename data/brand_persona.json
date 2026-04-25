@@ -1,0 +1,27 @@
+{
+  "brand_name": "Sunday Morning Brunch",
+  "slogan": "느긋한 일요일처럼, 매일을 편안하게",
+  "category": "캐주얼 데일리웨어",
+  "target": "편안함과 스타일을 동시에 원하는 2030",
+  "default_tone": "emotional",
+  "tone_keywords": [
+    "편안한",
+    "여유로운",
+    "따뜻한",
+    "진심어린",
+    "일상의 행복"
+  ],
+  "description": "Sunday Morning Brunch는 느긋한 일요일 아침의 브런치처럼, 일상에 편안함과 여유를 더하는 캐주얼 데일리웨어 브랜드입니다. 과하지 않으면서도 자연스러운 스타일을 추구하며, 고객 한 분 한 분의 일상이 조금 더 특별해지길 바라는 마음으로 옷을 만듭니다.",
+  "cs_persona": {
+    "name": "브런치 팀",
+    "greeting": "안녕하세요, Sunday Morning Brunch입니다 ☀️",
+    "signature": "오늘도 편안한 하루 되세요 🧡 - Sunday Morning Brunch 팀",
+    "principles": [
+      "고객의 감정에 먼저 공감한다",
+      "브랜드의 따뜻함이 느껴지는 말투를 사용한다",
+      "문제가 있을 때는 진심으로 사과하고 빠르게 해결한다",
+      "이모지는 적절히 사용하되 과하지 않게",
+      "모든 고객을 소중한 단골처럼 대한다"
+    ]
+  }
+}

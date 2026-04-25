@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="2026-04-25" agent="Claude" version="24.0">
+  <diagram id="user-flow" name="사용자 흐름도">
+    <mxGraphModel dx="1200" dy="1600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="2000" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- ===== 진입 ===== -->
+        <mxCell id="start" value="운영자 접속" style="ellipse;whiteSpace=wrap;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;fontFamily=AppleGothic;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="520" y="40" width="160" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== 분기 ===== -->
+        <mxCell id="check" value="톤 프로필&#xa;설정 여부?" style="rhombus;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;fontFamily=AppleGothic;" vertex="1" parent="1">
+          <mxGeometry x="520" y="160" width="160" height="100" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== 톤 설정 경로 (왼쪽) ===== -->
+        <mxCell id="tone_page" value="톤 설정 페이지&#xa;(대시보드)" style="rounded=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;fontFamily=AppleGothic;" vertex="1" parent="1">
+          <mxGeometry x="140" y="310" width="200" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="tone_input" value="브랜드명 + 키워드&#xa;+ 샘플 대댓글 입력" style="rounded=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;fontFamily=AppleGothic;" vertex="1" parent="1">
+          <mxGeometry x="140" y="430" width="200" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="tone_save" value="톤 프로필 저장" style="rounded=1;whiteSpace=wrap;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;fontFamily=AppleGothic;" vertex="1" parent="1">
+          <mxGeometry x="140" y="550" width="200" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== 대시보드 경로 (중앙) ===== -->
+        <mxCell id="dashboard" value="리뷰 목록 확인&#xa;(대시보드)" style="rounded=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;fontFamily=AppleGothic;" vertex="1" parent="1">
+          <mxGeometry x="500" y="430" width="200" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="dash_input" value="리뷰 입력&#xa;(단건/일괄)" style="rounded=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;fontFamily=AppleGothic;" vertex="1" parent="1">
+          <mxGeometry x="500" y="550" width="200" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== FAB 경로 (오른쪽) ===== -->
+        <mxCell id="shop_browse" value="쇼핑몰 탐색 중&#xa;FAB 클릭" style="rounded=1;whiteSpace=wrap;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;fontFamily=AppleGothic;" vertex="1" parent="1">
+          <mxGeometry x="860" y="310" width="200" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="fab_panel" value="미니패널 오픈&#xa;(리뷰 선택)" style="rounded=1;whiteSpace=wrap;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;fontFamily=AppleGothic;" vertex="1" parent="1">
+          <mxGeometry x="860" y="550" width="200" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== 공통 합류 (강조) ===== -->
+        <mxCell id="generate" value="대댓글 생성&#xa;(감성분류 + LLM)" style="rounded=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=12;fontFamily=AppleGothic;fontStyle=1;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="480" y="700" width="240" height="70" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="edit" value="초안 확인 / 수정" style="rounded=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;fontFamily=AppleGothic;" vertex="1" parent="1">
+          <mxGeometry x="500" y="840" width="200" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="satisfied" value="만족?" style="rhombus;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;fontFamily=AppleGothic;" vertex="1" parent="1">
+          <mxGeometry x="530" y="970" width="140" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="publish" value="확정 및 게시" style="rounded=1;whiteSpace=wrap;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;fontFamily=AppleGothic;fontStyle=1;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="480" y="1130" width="240" height="70" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== 최종 결과 (하나로 합류) ===== -->
+        <mxCell id="result" value="쇼핑몰에서 대댓글 확인&#xa;+ 히스토리 저장" style="rounded=1;whiteSpace=wrap;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;fontFamily=AppleGothic;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="460" y="1280" width="280" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== 메인 흐름 엣지 ===== -->
+        <mxCell id="ue1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#333333;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="start" target="check" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 분기: 미설정 -->
+        <mxCell id="ue2" value="미설정" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=1.5;strokeColor=#888888;dashed=1;fontSize=10;fontFamily=AppleGothic;exitX=0;exitY=0.5;entryX=0.5;entryY=0;" edge="1" source="check" target="tone_page" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 분기: 대시보드 -->
+        <mxCell id="ue3" value="설정됨 (대시보드)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#333333;fontSize=10;fontFamily=AppleGothic;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="check" target="dashboard" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 분기: 쇼핑몰 -->
+        <mxCell id="ue4" value="설정됨 (쇼핑몰)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#333333;fontSize=10;fontFamily=AppleGothic;exitX=1;exitY=0.5;entryX=0.5;entryY=0;" edge="1" source="check" target="shop_browse" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 톤 설정 흐름 -->
+        <mxCell id="ue5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=1.5;strokeColor=#888888;dashed=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="tone_page" target="tone_input" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="ue6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=1.5;strokeColor=#888888;dashed=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="tone_input" target="tone_save" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="ue7" value="저장 완료" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=1.5;strokeColor=#888888;dashed=1;fontSize=9;fontFamily=AppleGothic;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" source="tone_save" target="dashboard" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 대시보드 흐름 -->
+        <mxCell id="ue8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#333333;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="dashboard" target="dash_input" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="ue9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#333333;exitX=0.5;exitY=1;entryX=0.3;entryY=0;" edge="1" source="dash_input" target="generate" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- FAB 흐름 -->
+        <mxCell id="ue10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#333333;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="shop_browse" target="fab_panel" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="ue11" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#333333;exitX=0.5;exitY=1;entryX=0.7;entryY=0;" edge="1" source="fab_panel" target="generate" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 공통 흐름 -->
+        <mxCell id="ue12" value="초안" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#333333;fontSize=10;fontFamily=AppleGothic;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="generate" target="edit" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="ue13" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#333333;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="edit" target="satisfied" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="ue14" value="확정" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#333333;fontSize=10;fontFamily=AppleGothic;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="satisfied" target="publish" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="ue15" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#333333;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="publish" target="result" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- 피드백 루프: 재생성 -->
+        <mxCell id="ue16" value="재생성" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=1.5;strokeColor=#C84A4A;dashed=1;fontSize=10;fontFamily=AppleGothic;fontColor=#C84A4A;exitX=1;exitY=0.5;entryX=1;entryY=0.5;" edge="1" source="satisfied" target="generate" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="780" y="1015"/>
+              <mxPoint x="780" y="735"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
