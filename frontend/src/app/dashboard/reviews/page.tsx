@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import SentimentBadge from "../../../components/SentimentBadge";
 import StatusBadge from "../../../components/StatusBadge";
@@ -53,6 +53,40 @@ interface GeneratedResult {
   editContent: string;
 }
 
+// 톤 라벨 배열
+const TONE_LABELS = ["감성적", "담백한", "전문적"];
+
+// 키워드 빈도 추출 (프론트 간단 분석)
+function extractKeywords(reviews: UnrepliedReview[]): { keyword: string; count: number }[] {
+  const STOP_WORDS = new Set(["이", "그", "저", "것", "수", "등", "더", "좀", "잘", "안", "못", "너무", "정말", "진짜", "아주", "매우", "되", "하", "있", "없", "들", "에서", "에", "를", "을", "의", "가", "은", "는", "도", "로", "으로", "와", "과", "한", "할", "합니다", "해요", "네요", "어요", "입니다", "이에요", "같아요", "인데", "인데요", "하고", "했", "됩니다", "되네요"]);
+  const TARGET_KEYWORDS = ["사이즈", "배송", "색상", "소재", "핏", "가격", "품질", "디자인", "착용감", "마감", "포장", "교환", "환불", "두께", "촉감", "무게", "길이", "세탁", "냄새", "통기성", "신축성", "봉제", "바느질"];
+
+  const freq = new Map<string, number>();
+
+  // 타겟 키워드 우선 매칭
+  reviews.forEach((r) => {
+    const text = r.content;
+    TARGET_KEYWORDS.forEach((kw) => {
+      if (text.includes(kw)) {
+        freq.set(kw, (freq.get(kw) || 0) + 1);
+      }
+    });
+    // 2글자 이상 한글 단어 추출
+    const words = text.match(/[가-힣]{2,}/g) || [];
+    words.forEach((w) => {
+      if (!STOP_WORDS.has(w) && !TARGET_KEYWORDS.includes(w) && w.length >= 2 && w.length <= 6) {
+        freq.set(w, (freq.get(w) || 0) + 1);
+      }
+    });
+  });
+
+  return Array.from(freq.entries())
+    .filter(([, count]) => count >= 2)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([keyword, count]) => ({ keyword, count }));
+}
+
 export default function ReviewsPage() {
   const [groups, setGroups] = useState<GroupedReviews[]>([]);
   const [selectedReviews, setSelectedReviews] = useState<Set<number>>(new Set());
@@ -63,6 +97,12 @@ export default function ReviewsPage() {
   const [error, setError] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [ratingFilter, setRatingFilter] = useState<number | null>(null);
+  const [keywordFilter, setKeywordFilter] = useState<string | null>(null);
+  // 인라인 생성: 리뷰 ID → 생성 결과 매핑
+  const [inlineResults, setInlineResults] = useState<Map<number, GeneratedResult>>(new Map());
+  const [inlineLoading, setInlineLoading] = useState<Set<number>>(new Set());
+  // 확장된 리뷰 카드 (클릭하여 인라인 AI 생성)
+  const [expandedReviewId, setExpandedReviewId] = useState<number | null>(null);
 
   useEffect(() => {
     loadData();
@@ -207,10 +247,18 @@ export default function ReviewsPage() {
         })
       );
 
+      // 인라인 결과로 매핑
+      setInlineResults((prev) => {
+        const next = new Map(prev);
+        newResults.forEach((result) => {
+          next.set(result.review_id, result);
+        });
+        return next;
+      });
+      // 기존 results에도 추가 (일괄 관리용)
       setResults((prev) => [...newResults, ...prev]);
       // 생성 완료된 리뷰는 선택 해제
       setSelectedReviews(new Set());
-      // 미답변 목록은 게시 후에 새로고침 (1차 검토 → 2차 반영 흐름)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "일괄 생성에 실패했습니다.");
     } finally {
@@ -218,10 +266,68 @@ export default function ReviewsPage() {
     }
   }
 
-  async function handleToneChange(index: number, newTone: string) {
-    const item = results[index];
+  // 개별 리뷰 클릭 시 인라인 AI 생성
+  async function handleInlineGenerate(review: UnrepliedReview) {
+    if (inlineLoading.has(review.id)) return;
+    setInlineLoading((prev) => new Set(prev).add(review.id));
     setError("");
-    updateResult(index, { status: "regenerating" as string });
+    try {
+      const productName = groups.find((g) => g.product.id === review.product_id)?.product.name;
+      const result = await generateReply({
+        review_text: review.content,
+        review_id: review.id,
+        source: "batch",
+        tone_override: toneOverride || undefined,
+        product_name: productName,
+      });
+      const candidates = result.candidates || [result.draft_reply];
+      const genResult: GeneratedResult = {
+        reply_id: result.reply_id,
+        review_id: review.id,
+        draft_reply: candidates[0],
+        candidates,
+        selectedCandidate: 0,
+        sentiment: result.sentiment,
+        confidence: result.confidence,
+        status: "draft",
+        review_text: review.content,
+        isEditing: false,
+        editContent: candidates[0],
+      };
+      setInlineResults((prev) => new Map(prev).set(review.id, genResult));
+      // results 배열에도 추가
+      setResults((prev) => [genResult, ...prev.filter((r) => r.review_id !== review.id)]);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "답변 생성에 실패했습니다.");
+    } finally {
+      setInlineLoading((prev) => {
+        const next = new Set(prev);
+        next.delete(review.id);
+        return next;
+      });
+    }
+  }
+
+  function updateInlineResult(reviewId: number, updates: Partial<GeneratedResult>) {
+    setInlineResults((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(reviewId);
+      if (existing) {
+        next.set(reviewId, { ...existing, ...updates });
+      }
+      return next;
+    });
+    // results 배열도 동기화
+    setResults((prev) =>
+      prev.map((item) => (item.review_id === reviewId ? { ...item, ...updates } : item))
+    );
+  }
+
+  async function handleInlineToneChange(reviewId: number, newTone: string) {
+    const item = inlineResults.get(reviewId);
+    if (!item) return;
+    setError("");
+    updateInlineResult(reviewId, { status: "regenerating" as string });
     try {
       const result = await generateReply({
         review_text: item.review_text,
@@ -230,7 +336,7 @@ export default function ReviewsPage() {
         tone_override: newTone || undefined,
       });
       const candidates = result.candidates || [result.draft_reply];
-      updateResult(index, {
+      updateInlineResult(reviewId, {
         reply_id: result.reply_id,
         draft_reply: candidates[0],
         candidates,
@@ -243,15 +349,16 @@ export default function ReviewsPage() {
       });
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "말투 변경에 실패했습니다.");
-      updateResult(index, { status: "draft" });
+      updateInlineResult(reviewId, { status: "draft" });
     }
   }
 
-  async function handleSaveEdit(index: number) {
-    const item = results[index];
+  async function handleInlineSaveEdit(reviewId: number) {
+    const item = inlineResults.get(reviewId);
+    if (!item) return;
     try {
       await updateAgentReply(item.reply_id, item.editContent);
-      updateResult(index, { draft_reply: item.editContent, isEditing: false });
+      updateInlineResult(reviewId, { draft_reply: item.editContent, isEditing: false });
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "수정에 실패했습니다.");
     }
@@ -262,6 +369,7 @@ export default function ReviewsPage() {
     try {
       await confirmReply(item.reply_id);
       updateResult(index, { status: "confirmed" });
+      updateInlineResult(item.review_id, { status: "confirmed" });
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "확정에 실패했습니다.");
     }
@@ -272,11 +380,27 @@ export default function ReviewsPage() {
     try {
       await publishReply(item.reply_id);
       updateResult(index, { status: "published" });
+      updateInlineResult(item.review_id, { status: "published" });
       window.dispatchEvent(new CustomEvent("reply-published"));
       // 게시 완료 후 미답변 목록 새로고침
       await loadData();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "게시에 실패했습니다.");
+    }
+  }
+
+  async function handleInlineQuickPublish(reviewId: number) {
+    const item = inlineResults.get(reviewId);
+    if (!item) return;
+    try {
+      await confirmReply(item.reply_id);
+      updateInlineResult(reviewId, { status: "confirmed" });
+      await publishReply(item.reply_id);
+      updateInlineResult(reviewId, { status: "published" });
+      window.dispatchEvent(new CustomEvent("reply-published"));
+      await loadData();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "바로 게시에 실패했습니다.");
     }
   }
 
@@ -294,28 +418,25 @@ export default function ReviewsPage() {
     }
   }
 
-  async function handleQuickPublish(index: number) {
-    const item = results[index];
-    try {
-      await confirmReply(item.reply_id);
-      updateResult(index, { status: "confirmed" });
-      await publishReply(item.reply_id);
-      updateResult(index, { status: "published" });
-      window.dispatchEvent(new CustomEvent("reply-published"));
-      await loadData();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "바로 게시에 실패했습니다.");
-    }
-  }
-
   function getFilteredGroups(): GroupedReviews[] {
-    if (ratingFilter === null) return groups;
-    return groups
-      .map((g) => ({
-        ...g,
-        reviews: g.reviews.filter((r) => r.rating === ratingFilter),
-      }))
-      .filter((g) => g.reviews.length > 0);
+    let filtered = groups;
+    if (ratingFilter !== null) {
+      filtered = filtered
+        .map((g) => ({
+          ...g,
+          reviews: g.reviews.filter((r) => r.rating === ratingFilter),
+        }))
+        .filter((g) => g.reviews.length > 0);
+    }
+    if (keywordFilter !== null) {
+      filtered = filtered
+        .map((g) => ({
+          ...g,
+          reviews: g.reviews.filter((r) => r.content.includes(keywordFilter!)),
+        }))
+        .filter((g) => g.reviews.length > 0);
+    }
+    return filtered;
   }
 
   const filteredGroups = getFilteredGroups();
@@ -329,15 +450,23 @@ export default function ReviewsPage() {
   const totalUnreplied = groups.reduce((sum, g) => sum + g.reviews.length, 0);
   const filteredTotalUnreplied = filteredGroups.reduce((sum, g) => sum + g.reviews.length, 0);
 
+  // 요약 통계
+  const allReviews = useMemo(() => groups.flatMap((g) => g.reviews), [groups]);
+  const positiveCount = useMemo(() => allReviews.filter((r) => r.rating >= 4).length, [allReviews]);
+  const negativeCount = useMemo(() => allReviews.filter((r) => r.rating <= 2).length, [allReviews]);
+  const inquiryCount = useMemo(() => allReviews.filter((r) => r.rating === 3).length, [allReviews]);
+  const urgentCount = useMemo(() => allReviews.filter((r) => r.rating <= 2).length, [allReviews]);
+  const keywords = useMemo(() => extractKeywords(allReviews), [allReviews]);
+
   if (isLoadingData) {
     return <Spinner className="py-12" />;
   }
 
   return (
-    <div className="max-w-4xl">
-      <h1 className="text-2xl font-bold text-gray-900 mb-1">리뷰 대댓글 관리</h1>
+    <div className="max-w-5xl">
+      <h1 className="text-2xl font-bold text-gray-900 mb-1">리뷰 AI 비서</h1>
       <p className="text-sm text-gray-500 mb-6">
-        미답변 리뷰를 상품별로 확인하고, 선택하여 대댓글을 일괄 생성합니다.
+        미답변 리뷰를 분석하고, AI가 추천하는 답변을 검토하여 원클릭으로 게시합니다.
       </p>
 
       {/* Error */}
@@ -352,168 +481,123 @@ export default function ReviewsPage() {
         </div>
       )}
 
-      {/* ===== 1차: 생성 결과 검토 영역 (미답변 목록 위에 배치) ===== */}
-      {results.length > 0 && (
-        <div className="mb-8 border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold text-gray-900">
-              📝 1차 검토: 생성된 대댓글 ({results.length}건)
-            </h2>
-            <div className="flex gap-2">
-              <button
-                onClick={handleConfirmAll}
-                className="px-3 py-1.5 text-xs bg-yellow-500 text-white rounded hover:bg-yellow-600"
-              >
-                전체 확정
-              </button>
-              <button
-                onClick={handlePublishAll}
-                className="px-3 py-1.5 text-xs bg-green-500 text-white rounded hover:bg-green-600"
-              >
-                2차 반영: 전체 게시
-              </button>
-            </div>
+      {/* ===== 상단 대시보드 요약 ===== */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        {/* 총 미답변 */}
+        <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-1">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 011.037-.443 48.282 48.282 0 005.68-.494c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z"/></svg>
+            <span className="text-xs text-gray-500 font-medium">총 미답변</span>
           </div>
-          <p className="text-xs text-gray-500 mb-3">
-            각 리뷰마다 3개의 후보가 생성됩니다. 마음에 드는 후보를 선택하고 수정한 뒤, 확정 → 게시로 반영하세요.
-          </p>
+          <p className="text-2xl font-bold text-gray-900">{totalUnreplied}<span className="text-sm font-normal text-gray-400 ml-1">건</span></p>
+        </div>
+        {/* 긍정 */}
+        <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-1">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941"/></svg>
+            <span className="text-xs text-gray-500 font-medium">긍정 리뷰</span>
+          </div>
+          <p className="text-2xl font-bold text-gray-900">{positiveCount}<span className="text-sm font-normal text-gray-400 ml-1">건</span></p>
+        </div>
+        {/* 부정 */}
+        <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-1">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6L9 12.75l4.286-4.286a11.948 11.948 0 014.306 6.43l.776 2.898m0 0l3.182-5.511m-3.182 5.51l-5.511-3.181"/></svg>
+            <span className="text-xs text-gray-500 font-medium">부정 리뷰</span>
+          </div>
+          <p className="text-2xl font-bold text-gray-900">{negativeCount}<span className="text-sm font-normal text-gray-400 ml-1">건</span></p>
+        </div>
+        {/* 긴급 대응 */}
+        <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-1">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+            <span className="text-xs text-gray-500 font-medium">긴급 대응</span>
+          </div>
+          <p className="text-2xl font-bold text-gray-900">{urgentCount}<span className="text-sm font-normal text-gray-400 ml-1">건</span></p>
+        </div>
+      </div>
 
-          <div className="space-y-3">
-            {results.map((item, index) => (
-              <div key={item.reply_id} className="border border-gray-200 rounded-lg p-4 bg-white">
-                <div className="mb-3">
-                  <span className="text-xs text-gray-500">리뷰:</span>
-                  <p className="text-sm text-gray-700">&ldquo;{item.review_text}&rdquo;</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <SentimentBadge sentiment={item.sentiment} confidence={item.confidence} />
-                    <StatusBadge status={item.status} />
-                  </div>
-                </div>
+      {/* 감성 분포 바 */}
+      {totalUnreplied > 0 && (
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-xs text-gray-500 font-medium">감성 분포</span>
+          </div>
+          <div className="flex h-3 rounded-full overflow-hidden bg-gray-100">
+            {positiveCount > 0 && (
+              <div
+                className="bg-green-400 transition-all"
+                style={{ width: `${(positiveCount / totalUnreplied) * 100}%` }}
+                title={`긍정 ${positiveCount}건`}
+              />
+            )}
+            {inquiryCount > 0 && (
+              <div
+                className="bg-amber-400 transition-all"
+                style={{ width: `${(inquiryCount / totalUnreplied) * 100}%` }}
+                title={`문의/중립 ${inquiryCount}건`}
+              />
+            )}
+            {negativeCount > 0 && (
+              <div
+                className="bg-red-400 transition-all"
+                style={{ width: `${(negativeCount / totalUnreplied) * 100}%` }}
+                title={`부정 ${negativeCount}건`}
+              />
+            )}
+          </div>
+          <div className="flex items-center gap-4 mt-1.5">
+            <span className="flex items-center gap-1 text-xs text-gray-500">
+              <span className="w-2.5 h-2.5 rounded-full bg-green-400 inline-block" /> 긍정 {positiveCount}
+            </span>
+            <span className="flex items-center gap-1 text-xs text-gray-500">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" /> 문의/중립 {inquiryCount}
+            </span>
+            <span className="flex items-center gap-1 text-xs text-gray-500">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-400 inline-block" /> 부정 {negativeCount}
+            </span>
+          </div>
+        </div>
+      )}
 
-                {/* 3개 후보 카드 */}
-                {item.candidates && item.candidates.length > 1 && !item.isEditing && item.status !== "published" && (
-                  <div className="mb-3">
-                    <span className="text-xs text-gray-500 font-medium">대댓글 후보 ({item.candidates.length}개) — 카드를 클릭하여 채택하세요:</span>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
-                      {item.candidates.map((candidate, ci) => (
-                        <div
-                          key={ci}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => updateResult(index, {
-                            selectedCandidate: ci,
-                            draft_reply: candidate,
-                            editContent: candidate,
-                          })}
-                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); updateResult(index, { selectedCandidate: ci, draft_reply: candidate, editContent: candidate }); } }}
-                          className={`relative flex flex-col rounded-xl shadow-sm p-4 cursor-pointer transition-all ${
-                            item.selectedCandidate === ci
-                              ? "border-2 border-amber-400 bg-amber-50/60 shadow-md"
-                              : "border border-gray-200 bg-white hover:border-gray-300 hover:shadow"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                              item.selectedCandidate === ci
-                                ? "bg-amber-200 text-amber-800"
-                                : "bg-gray-100 text-gray-500"
-                            }`}>
-                              후보 {ci + 1}
-                            </span>
-                            <SentimentBadge sentiment={item.sentiment} confidence={item.confidence} />
-                          </div>
-                          <p className="text-sm text-gray-700 flex-1 leading-relaxed mb-3">{candidate}</p>
-                          <div className="flex gap-2 mt-auto">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                updateResult(index, {
-                                  selectedCandidate: ci,
-                                  draft_reply: candidate,
-                                  editContent: candidate,
-                                  isEditing: true,
-                                });
-                              }}
-                              className="flex-1 px-3 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                            >
-                              수정
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                updateResult(index, {
-                                  selectedCandidate: ci,
-                                  draft_reply: candidate,
-                                  editContent: candidate,
-                                });
-                                handleQuickPublish(index);
-                              }}
-                              className="flex-1 px-3 py-1.5 text-xs bg-lime-500 text-white rounded-lg hover:bg-lime-600 font-medium transition-colors"
-                            >
-                              바로 게시
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+      {/* 키워드 태그 — 제거됨 */}
 
-                {/* 채택된 대댓글 (수정 모드 또는 후보 1개일 때) */}
-                {(item.isEditing || (item.candidates && item.candidates.length <= 1) || item.status === "published") && (
-                <div>
-                  <span className="text-xs text-gray-500">
-                    {item.candidates && item.candidates.length > 1 ? "채택된 대댓글:" : "대댓글 초안:"}
-                  </span>
-                  {item.isEditing ? (
-                    <textarea
-                      value={item.editContent}
-                      onChange={(e) => updateResult(index, { editContent: e.target.value })}
-                      className="w-full border border-amber-300 rounded-lg p-3 text-sm min-h-[80px] mt-1 focus:outline-none focus:ring-2 focus:ring-amber-400"
-                    />
-                  ) : (
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-gray-700 mt-1 whitespace-pre-wrap">
-                      {item.draft_reply}
-                    </div>
-                  )}
-                </div>
-                )}
-
-                {item.status !== "published" && (
-                  <div className="flex gap-2 mt-3">
-                    {item.isEditing ? (
-                      <>
-                        <button onClick={() => handleSaveEdit(index)} className="px-3 py-1.5 text-xs bg-blue-500 text-white rounded-lg hover:bg-blue-600">저장</button>
-                        <button onClick={() => updateResult(index, { isEditing: false, editContent: item.draft_reply })} className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-50">취소</button>
-                      </>
-                    ) : (
-                      <>
-                        {item.candidates && item.candidates.length <= 1 && (
-                          <button onClick={() => updateResult(index, { isEditing: true })} className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-50">수정</button>
-                        )}
-                        <select
-                          onChange={(e) => { if (e.target.value) { handleToneChange(index, e.target.value); e.target.value = ""; } }}
-                          className="px-2 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
-                          aria-label="말투 변경"
-                          disabled={item.status === ("regenerating" as string)}
-                        >
-                          <option value="">말투 변경</option>
-                          <option value="friendly">친근한 톤</option>
-                          <option value="professional">전문적인 톤</option>
-                          <option value="emotional">감성적인 톤</option>
-                        </select>
-                        <button onClick={() => handleConfirm(index)} disabled={item.status === "confirmed"} className="px-3 py-1.5 text-xs bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:opacity-50">확정</button>
-                        <button onClick={() => handlePublish(index)} className="px-3 py-1.5 text-xs bg-green-500 text-white rounded-lg hover:bg-green-600">게시</button>
-                      </>
-                    )}
-                  </div>
-                )}
-
-                {item.status === "published" && (
-                  <div className="mt-2 text-xs text-green-600 font-medium">✅ 게시 완료</div>
-                )}
+      {/* ===== 1차: 생성 결과 검토 영역 (일괄 생성 결과, 인라인 결과와 별도) ===== */}
+      {results.filter((r) => r.status === "published").length > 0 && (
+        <div className="mb-6 border border-green-200 rounded-lg p-4 bg-green-50/50">
+          <h2 className="text-sm font-bold text-green-700 mb-2">
+            게시 완료 ({results.filter((r) => r.status === "published").length}건)
+          </h2>
+          <div className="space-y-1">
+            {results.filter((r) => r.status === "published").map((item) => (
+              <div key={item.reply_id} className="text-xs text-green-600 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+                <span className="truncate">{item.review_text.slice(0, 50)}...</span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* 일괄 관리 바 */}
+      {results.filter((r) => r.status !== "published").length > 0 && (
+        <div className="mb-4 flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5">
+          <span className="text-sm font-medium text-amber-800">
+            생성된 답변 {results.filter((r) => r.status !== "published").length}건 검토 대기
+          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={handleConfirmAll}
+              className="px-3 py-1.5 text-xs bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-medium"
+            >
+              전체 확정
+            </button>
+            <button
+              onClick={handlePublishAll}
+              className="px-3 py-1.5 text-xs bg-green-500 text-white rounded-lg hover:bg-green-600 font-medium"
+            >
+              전체 게시
+            </button>
           </div>
         </div>
       )}
@@ -576,7 +660,7 @@ export default function ReviewsPage() {
               <button
                 onClick={handleBatchGenerate}
                 disabled={isGenerating}
-                className="px-4 py-1.5 text-xs bg-lime-500 text-white rounded-lg hover:bg-lime-600 font-medium disabled:opacity-50 shadow-sm"
+                className="px-4 py-1.5 text-xs bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-medium disabled:opacity-50 shadow-sm"
               >
                 {isGenerating ? "생성 중..." : `선택한 ${selectedReviews.size}건 일괄 생성`}
               </button>
@@ -590,7 +674,7 @@ export default function ReviewsPage() {
           </div>
         ) : filteredTotalUnreplied === 0 ? (
           <div className="text-center py-8 bg-white rounded-lg border border-gray-200">
-            <p className="text-gray-500">해당 별점의 미답변 리뷰가 없습니다.</p>
+            <p className="text-gray-500">해당 조건의 미답변 리뷰가 없습니다.</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -642,41 +726,245 @@ export default function ReviewsPage() {
                   {/* 리뷰 목록 */}
                   {group.isExpanded && (
                     <div className="divide-y divide-gray-100">
-                      {group.reviews.map((review) => (
-                        <label
-                          key={review.id}
-                          className={`flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-amber-50/50 transition-colors ${
-                            selectedReviews.has(review.id) ? "bg-amber-50/30" : ""
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedReviews.has(review.id)}
-                            onChange={() => toggleReview(review.id)}
-                            className="w-4 h-4 mt-1 text-amber-500 rounded border-gray-300 focus:ring-amber-400"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1 flex-wrap">
-                              <StarRating rating={review.rating} size="text-xs" />
-                              <span className="text-xs text-gray-500 font-medium">
-                                {new Date(review.created_at).toLocaleDateString("ko-KR")}
-                              </span>
-                              <span className="text-xs text-gray-400">{review.author}</span>
-                              {review.product_name && (
-                                <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
-                                  {review.product_name}
-                                </span>
-                              )}
-                              {!review.product_name && (
-                                <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
-                                  {group.product.name}
-                                </span>
-                              )}
+                      {group.reviews.map((review) => {
+                        const inlineResult = inlineResults.get(review.id);
+                        const isExpanded = expandedReviewId === review.id;
+                        const isInlineLoading = inlineLoading.has(review.id);
+
+                        return (
+                          <div key={review.id}>
+                            <div
+                              className={`flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-amber-50/50 transition-colors ${
+                                selectedReviews.has(review.id) ? "bg-amber-50/30" : ""
+                              } ${isExpanded ? "bg-amber-50/40" : ""}`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedReviews.has(review.id)}
+                                onChange={() => toggleReview(review.id)}
+                                className="w-4 h-4 mt-1 text-amber-500 rounded border-gray-300 focus:ring-amber-400"
+                              />
+                              <div
+                                className="flex-1 min-w-0"
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => {
+                                  if (expandedReviewId === review.id) {
+                                    setExpandedReviewId(null);
+                                  } else {
+                                    setExpandedReviewId(review.id);
+                                    // 아직 인라인 결과가 없으면 자동 생성
+                                    if (!inlineResults.has(review.id)) {
+                                      handleInlineGenerate(review);
+                                    }
+                                  }
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    if (expandedReviewId === review.id) {
+                                      setExpandedReviewId(null);
+                                    } else {
+                                      setExpandedReviewId(review.id);
+                                      if (!inlineResults.has(review.id)) {
+                                        handleInlineGenerate(review);
+                                      }
+                                    }
+                                  }
+                                }}
+                              >
+                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                  <StarRating rating={review.rating} size="text-xs" />
+                                  {/* 긴급/주의 배지 */}
+                                  {review.rating <= 2 && (
+                                    <span className="px-2 py-0.5 text-[10px] font-bold bg-red-500 text-white rounded-full uppercase tracking-wide">
+                                      긴급
+                                    </span>
+                                  )}
+                                  {review.rating === 3 && (
+                                    <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-500 text-white rounded-full uppercase tracking-wide">
+                                      주의
+                                    </span>
+                                  )}
+                                  <span className="text-xs text-gray-500 font-medium">
+                                    {new Date(review.created_at).toLocaleDateString("ko-KR")}
+                                  </span>
+                                  <span className="text-xs text-gray-400">{review.author}</span>
+                                  {review.product_name && (
+                                    <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
+                                      {review.product_name}
+                                    </span>
+                                  )}
+                                  {!review.product_name && (
+                                    <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
+                                      {group.product.name}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-sm text-gray-700 line-clamp-3">{review.content}</p>
+                                {!isExpanded && !inlineResult && (
+                                  <span className="text-xs text-amber-500 mt-1 inline-block">
+                                    클릭하여 AI 답변 생성 &rarr;
+                                  </span>
+                                )}
+                                {inlineResult && !isExpanded && inlineResult.status !== "published" && (
+                                  <span className="text-xs text-amber-600 mt-1 inline-block font-medium">
+                                    AI 답변 생성됨 - 클릭하여 확인 &rarr;
+                                  </span>
+                                )}
+                                {inlineResult && inlineResult.status === "published" && (
+                                  <span className="text-xs text-green-600 mt-1 inline-flex items-center gap-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                    게시 완료
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <p className="text-sm text-gray-700 line-clamp-3">{review.content}</p>
+
+                            {/* 인라인 AI 답변 영역 */}
+                            {isExpanded && (
+                              <div className="px-4 py-4 bg-gray-50/80 border-t border-gray-100">
+                                {isInlineLoading && !inlineResult && (
+                                  <div className="flex items-center gap-3 py-6 justify-center">
+                                    <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-amber-500" />
+                                    <span className="text-sm text-gray-500">AI가 3개 후보를 생성하고 있습니다...</span>
+                                  </div>
+                                )}
+
+                                {inlineResult && inlineResult.status !== "published" && (
+                                  <div>
+                                    <div className="flex items-center justify-between mb-3">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs font-medium text-gray-600">AI 추천 답변</span>
+                                        <SentimentBadge sentiment={inlineResult.sentiment} confidence={inlineResult.confidence} />
+                                        <StatusBadge status={inlineResult.status} />
+                                      </div>
+                                      <select
+                                        onChange={(e) => { if (e.target.value) { handleInlineToneChange(review.id, e.target.value); e.target.value = ""; } }}
+                                        className="px-2 py-1 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
+                                        aria-label="말투 변경"
+                                        disabled={inlineResult.status === ("regenerating" as string)}
+                                      >
+                                        <option value="">말투 변경</option>
+                                        <option value="friendly">친근한 톤</option>
+                                        <option value="professional">전문적인 톤</option>
+                                        <option value="emotional">감성적인 톤</option>
+                                      </select>
+                                    </div>
+
+                                    {/* 3개 후보 가로 슬라이드 카드 */}
+                                    {inlineResult.candidates && inlineResult.candidates.length > 1 && !inlineResult.isEditing && (
+                                      <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
+                                        {inlineResult.candidates.map((candidate, ci) => (
+                                          <div
+                                            key={ci}
+                                            role="button"
+                                            tabIndex={0}
+                                            onClick={() => updateInlineResult(review.id, {
+                                              selectedCandidate: ci,
+                                              draft_reply: candidate,
+                                              editContent: candidate,
+                                            })}
+                                            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); updateInlineResult(review.id, { selectedCandidate: ci, draft_reply: candidate, editContent: candidate }); } }}
+                                            className={`flex-shrink-0 w-[280px] snap-start flex flex-col rounded-xl p-4 cursor-pointer transition-all ${
+                                              inlineResult.selectedCandidate === ci
+                                                ? "border-2 border-amber-400 bg-amber-50/60 shadow-md"
+                                                : "border border-gray-200 bg-white hover:border-gray-300 hover:shadow"
+                                            }`}
+                                          >
+                                            <div className="flex items-center justify-between mb-2">
+                                              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                                                inlineResult.selectedCandidate === ci
+                                                  ? "bg-amber-200 text-amber-800"
+                                                  : "bg-gray-100 text-gray-500"
+                                              }`}>
+                                                {TONE_LABELS[ci] || `후보 ${ci + 1}`}
+                                              </span>
+                                              {inlineResult.selectedCandidate === ci && (
+                                                <span className="text-xs text-amber-600 font-medium">선택됨</span>
+                                              )}
+                                            </div>
+                                            <p className="text-sm text-gray-700 flex-1 leading-relaxed mb-3 line-clamp-4">{candidate}</p>
+                                            <div className="flex gap-2 mt-auto">
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  updateInlineResult(review.id, {
+                                                    selectedCandidate: ci,
+                                                    draft_reply: candidate,
+                                                    editContent: candidate,
+                                                    isEditing: true,
+                                                  });
+                                                }}
+                                                className="flex-1 px-3 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                                              >
+                                                수정
+                                              </button>
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  updateInlineResult(review.id, {
+                                                    selectedCandidate: ci,
+                                                    draft_reply: candidate,
+                                                    editContent: candidate,
+                                                  });
+                                                  handleInlineQuickPublish(review.id);
+                                                }}
+                                                className="flex-1 px-3 py-1.5 text-xs bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-medium transition-colors"
+                                              >
+                                                바로 등록
+                                              </button>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    {/* 수정 모드 또는 후보 1개 */}
+                                    {(inlineResult.isEditing || (inlineResult.candidates && inlineResult.candidates.length <= 1)) && (
+                                      <div className="mt-2">
+                                        {inlineResult.isEditing ? (
+                                          <textarea
+                                            value={inlineResult.editContent}
+                                            onChange={(e) => updateInlineResult(review.id, { editContent: e.target.value })}
+                                            className="w-full border border-amber-300 rounded-lg p-3 text-sm min-h-[80px] focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                          />
+                                        ) : (
+                                          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap">
+                                            {inlineResult.draft_reply}
+                                          </div>
+                                        )}
+                                        <div className="flex gap-2 mt-2">
+                                          {inlineResult.isEditing ? (
+                                            <>
+                                              <button onClick={() => handleInlineSaveEdit(review.id)} className="px-3 py-1.5 text-xs bg-blue-500 text-white rounded-lg hover:bg-blue-600">저장</button>
+                                              <button onClick={() => updateInlineResult(review.id, { isEditing: false, editContent: inlineResult.draft_reply })} className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-50">취소</button>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <button onClick={() => updateInlineResult(review.id, { isEditing: true })} className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-50">수정</button>
+                                              <button onClick={() => handleInlineQuickPublish(review.id)} className="px-3 py-1.5 text-xs bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-medium">바로 등록</button>
+                                            </>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {inlineResult && inlineResult.status === "published" && (
+                                  <div className="text-center py-4">
+                                    <span className="text-sm text-green-600 font-medium flex items-center justify-center gap-1">
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                      게시 완료
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
-                        </label>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -685,7 +973,7 @@ export default function ReviewsPage() {
           </div>
         )}
 
-        {/* 일괄 생성 버튼 */}
+        {/* 일괄 생성 버튼 (하단 스티키) */}
         {selectedReviews.size > 0 && (
           <div className="sticky bottom-0 mt-4 bg-white border border-amber-200 rounded-lg p-4 shadow-lg">
             <div className="flex items-center gap-3 mb-3">
@@ -697,15 +985,15 @@ export default function ReviewsPage() {
                 aria-label="말투 선택"
               >
                 <option value="">기본 (브랜드 톤)</option>
-                <option value="friendly">😊 친근한 톤</option>
-                <option value="professional">💼 전문적인 톤</option>
-                <option value="emotional">💛 감성적인 톤</option>
+                <option value="friendly">친근한 톤</option>
+                <option value="professional">전문적인 톤</option>
+                <option value="emotional">감성적인 톤</option>
               </select>
             </div>
             <button
               onClick={handleBatchGenerate}
               disabled={isGenerating}
-              className="w-full py-3 bg-lime-500 text-white rounded-lg hover:bg-lime-600 font-medium text-sm disabled:opacity-50"
+              className="w-full py-3 bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-medium text-sm disabled:opacity-50"
             >
               {isGenerating ? (
                 <span className="flex items-center justify-center gap-2">
@@ -719,8 +1007,6 @@ export default function ReviewsPage() {
           </div>
         )}
       </div>
-
-      {/* 기존 생성 결과 블록은 상단으로 이동 완료 */}
     </div>
   );
 }
