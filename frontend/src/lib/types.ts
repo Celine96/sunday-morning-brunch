@@ -62,11 +62,16 @@ export interface HistoryItem {
 export interface HistoryDetail {
   reply: {
     id: number;
+    review_id: number;
     content: string;
+    author: string;
     status: string;
     sentiment: string;
     confidence: number;
+    source?: string;
     created_at: string;
+    updated_at?: string;
+    published_at?: string | null;
   };
   review: {
     id: number;
@@ -82,10 +87,4 @@ export interface HistoryDetail {
   }>;
 }
 
-export interface GeneratedReply {
-  reply_id: number;
-  draft_reply: string;
-  sentiment: string;
-  confidence: number;
-  status: string;
-}
+// GeneratedReply removed: unused in codebase (each page defines its own local interface)

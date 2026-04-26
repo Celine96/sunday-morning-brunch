@@ -122,7 +122,7 @@ async def generate_reply(
         c = get_client()
         response = await asyncio.to_thread(
             c.messages.create,
-            model="claude-sonnet-4-20250514",
+            model="claude-haiku-4-5-20251001",
             max_tokens=1500,
             system=system_prompt,
             messages=[{"role": "user", "content": user_message}],
@@ -162,15 +162,16 @@ async def generate_tone_preview(system_prompt: str) -> list:
 
     previews = []
     for review in test_reviews:
-        reply = await generate_reply(
+        candidates = await generate_reply(
             review_text=review["text"],
             sentiment=review["sentiment"],
             system_prompt=system_prompt,
         )
+        reply_text = candidates[0] if isinstance(candidates, list) else candidates
         previews.append({
             "review": review["text"],
             "sentiment": review["sentiment"],
-            "reply": reply,
+            "reply": reply_text,
         })
 
     return previews

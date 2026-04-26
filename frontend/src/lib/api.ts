@@ -182,6 +182,14 @@ export async function publishReply(
   });
 }
 
+export async function unpublishReply(
+  replyId: number
+): Promise<Reply> {
+  return fetchAPI(`/api/agent/replies/${replyId}/unpublish`, {
+    method: "POST",
+  });
+}
+
 export async function regenerateReply(
   replyId: number
 ): Promise<{ id: number; new_draft_reply: string; sentiment: string }> {

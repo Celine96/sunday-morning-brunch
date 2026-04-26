@@ -11,6 +11,7 @@ import {
   updateAgentReply,
   confirmReply,
   publishReply,
+  getToneProfile,
 } from "../lib/api";
 
 interface UnrepliedReview {
@@ -47,6 +48,7 @@ export default function FABMiniPanel() {
   const [toneOverride, setToneOverride] = useState<string>("");
   const [error, setError] = useState("");
   const [unrepliedCount, setUnrepliedCount] = useState(0);
+  const [hasToneProfile, setHasToneProfile] = useState<boolean>(true);
   const pathname = usePathname();
 
   // Extract product ID from pathname
@@ -55,6 +57,7 @@ export default function FABMiniPanel() {
 
   useEffect(() => {
     loadUnrepliedReviews();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentProductId]);
 
   async function loadUnrepliedReviews() {
@@ -68,6 +71,13 @@ export default function FABMiniPanel() {
       setLoadError("데이터를 불러올 수 없습니다. 다시 시도해주세요.");
       setReviews([]);
       setUnrepliedCount(0);
+    }
+    // 톤 프로필 존재 여부 확인
+    try {
+      await getToneProfile();
+      setHasToneProfile(true);
+    } catch {
+      setHasToneProfile(false);
     }
   }
 
@@ -142,21 +152,16 @@ export default function FABMiniPanel() {
     }
   }
 
-  async function handleConfirm() {
-    if (!generatedReply) return;
-    try {
-      await confirmReply(generatedReply.reply_id);
-      setGeneratedReply({ ...generatedReply, status: "confirmed" });
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "확정에 실패했습니다.");
-    }
-  }
-
-  async function handlePublish() {
-    if (!generatedReply) return;
+  async function handlePublish(overrideReplyId?: number) {
+    const replyId = overrideReplyId ?? generatedReply?.reply_id;
+    if (!replyId || !generatedReply) return;
     setIsLoading(true);
     try {
-      await publishReply(generatedReply.reply_id);
+      // confirm 단계를 자동으로 처리
+      if (generatedReply.status === "draft") {
+        await confirmReply(replyId);
+      }
+      await publishReply(replyId);
       setGeneratedReply({ ...generatedReply, status: "published" });
       // Refresh unreplied reviews
       await loadUnrepliedReviews();
@@ -203,13 +208,13 @@ export default function FABMiniPanel() {
           {/* Header */}
           <div className="bg-amber-500 text-white px-4 py-3 flex items-center justify-between flex-shrink-0">
             {selectedReview ? (
-              <button onClick={handleBack} className="flex items-center gap-1 text-sm hover:opacity-80">
+              <button onClick={handleBack} className="flex items-center gap-1 text-sm hover:opacity-80" aria-label="리뷰 목록으로 돌아가기">
                 ← 리뷰 목록
               </button>
             ) : (
               <span className="font-semibold text-sm">리뷰 대댓글 에이전트</span>
             )}
-            <button onClick={() => setIsOpen(false)} className="text-white hover:opacity-80 text-lg">
+            <button onClick={() => setIsOpen(false)} className="text-white hover:opacity-80 text-lg" aria-label="패널 닫기">
               ×
             </button>
           </div>
@@ -267,9 +272,12 @@ export default function FABMiniPanel() {
                         <p className="text-xs text-gray-600 line-clamp-2">{review.content}</p>
                         <div className="flex items-center gap-2 mt-2">
                           <button
-                            className="text-xs text-amber-600 hover:text-amber-700 font-medium"
+                            className={`text-xs font-medium ${hasToneProfile ? "text-amber-600 hover:text-amber-700" : "text-gray-400 cursor-not-allowed"}`}
+                            disabled={!hasToneProfile}
+                            title={!hasToneProfile ? "브랜드 톤을 먼저 설정해주세요" : undefined}
                             onClick={(e) => {
                               e.stopPropagation();
+                              if (!hasToneProfile) return;
                               setSelectedReview(review);
                               handleGenerate(review);
                             }}
@@ -351,49 +359,95 @@ export default function FABMiniPanel() {
 
                 {/* Generate Button (if not generated yet) */}
                 {!generatedReply && !isLoading && (
-                  <button
-                    onClick={() => handleGenerate(selectedReview)}
-                    className="w-full py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 text-sm font-medium"
-                  >
-                    대댓글 생성
-                  </button>
+                  hasToneProfile ? (
+                    <button
+                      onClick={() => handleGenerate(selectedReview)}
+                      className="w-full py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 text-sm font-medium"
+                    >
+                      대댓글 생성
+                    </button>
+                  ) : (
+                    <div className="text-center py-3">
+                      <p className="text-xs text-amber-700 font-medium mb-1">톤 설정이 필요합니다</p>
+                      <p className="text-[10px] text-gray-500 mb-2">브랜드 톤을 먼저 설정해야 AI 대댓글을 생성할 수 있어요.</p>
+                      <Link
+                        href="/dashboard/tone"
+                        className="px-3 py-1.5 text-xs bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-medium inline-block"
+                      >
+                        톤 설정하러 가기 &rarr;
+                      </Link>
+                    </div>
+                  )
                 )}
 
                 {/* Generated Reply */}
                 {generatedReply && !isLoading && (
                   <div>
-                    {/* 3개 후보 선택 */}
+                    {/* 3개 후보 카드 */}
                     {generatedReply.candidates && generatedReply.candidates.length > 1 && !isEditing && generatedReply.status !== "published" && (
-                      <div className="mb-2">
-                        <p className="text-xs text-gray-500 font-medium mb-1">후보 {generatedReply.candidates.length}개 — 선택:</p>
-                        <div className="space-y-1.5">
-                          {generatedReply.candidates.map((c, ci) => (
-                            <label
+                      <div className="mb-2 space-y-2">
+                        {generatedReply.candidates.map((c, ci) => {
+                          const LABELS = ["후보 A", "후보 B", "후보 C"];
+                          return (
+                            <div
                               key={ci}
-                              className={`flex items-start gap-1.5 p-2 rounded border cursor-pointer text-xs transition-colors ${
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => {
+                                setGeneratedReply({
+                                  ...generatedReply,
+                                  selectedCandidate: ci,
+                                  draft_reply: c,
+                                });
+                                setEditContent(c);
+                              }}
+                              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setGeneratedReply({ ...generatedReply, selectedCandidate: ci, draft_reply: c }); setEditContent(c); } }}
+                              className={`rounded-lg p-3 cursor-pointer transition-all ${
                                 generatedReply.selectedCandidate === ci
-                                  ? "border-amber-400 bg-amber-50"
-                                  : "border-gray-200 hover:border-gray-300"
+                                  ? "border-2 border-amber-400 bg-amber-50/60 shadow-sm"
+                                  : "border border-gray-200 bg-white hover:border-gray-300"
                               }`}
                             >
-                              <input
-                                type="radio"
-                                name="fab-candidate"
-                                checked={generatedReply.selectedCandidate === ci}
-                                onChange={() => {
-                                  setGeneratedReply({
-                                    ...generatedReply,
-                                    selectedCandidate: ci,
-                                    draft_reply: c,
-                                  });
-                                  setEditContent(c);
-                                }}
-                                className="mt-0.5 text-amber-500"
-                              />
-                              <span className="text-gray-700 line-clamp-2">{c}</span>
-                            </label>
-                          ))}
-                        </div>
+                              <div className="flex items-center justify-between mb-1.5">
+                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                                  generatedReply.selectedCandidate === ci
+                                    ? "bg-amber-200 text-amber-800"
+                                    : "bg-gray-100 text-gray-500"
+                                }`}>
+                                  {LABELS[ci] || `후보 ${ci + 1}`}
+                                </span>
+                                {generatedReply.selectedCandidate === ci && (
+                                  <span className="text-[10px] text-amber-600 font-medium">선택됨</span>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-700 line-clamp-3 mb-2">{c}</p>
+                              <div className="flex gap-1.5">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setGeneratedReply({ ...generatedReply, selectedCandidate: ci, draft_reply: c });
+                                    setEditContent(c);
+                                    setIsEditing(true);
+                                  }}
+                                  className="flex-1 px-2 py-1 text-[10px] border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                                >
+                                  수정
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setGeneratedReply({ ...generatedReply, selectedCandidate: ci, draft_reply: c });
+                                    setEditContent(c);
+                                    handlePublish(generatedReply.reply_id);
+                                  }}
+                                  className="flex-1 px-2 py-1 text-[10px] bg-amber-500 text-white rounded hover:bg-amber-600 font-medium transition-colors"
+                                >
+                                  바로 등록
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
 
@@ -449,18 +503,11 @@ export default function FABMiniPanel() {
                           </button>
                         )}
                         <button
-                          onClick={handleConfirm}
-                          className="px-3 py-1.5 text-xs bg-yellow-500 text-white rounded hover:bg-yellow-600"
-                          disabled={generatedReply.status === "confirmed"}
-                        >
-                          확정
-                        </button>
-                        <button
-                          onClick={handlePublish}
-                          className="px-3 py-1.5 text-xs bg-green-500 text-white rounded hover:bg-green-600"
+                          onClick={() => handlePublish()}
+                          className="px-3 py-1.5 text-xs bg-amber-500 text-white rounded hover:bg-amber-600 font-medium"
                           disabled={isLoading}
                         >
-                          게시
+                          바로 등록
                         </button>
                       </div>
                     )}

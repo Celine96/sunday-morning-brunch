@@ -14,6 +14,8 @@ import {
   updateAgentReply,
   confirmReply,
   publishReply,
+  getToneProfile,
+  unpublishReply,
 } from "../../../lib/api";
 
 interface ProductSummary {
@@ -30,6 +32,7 @@ interface UnrepliedReview {
   author: string;
   rating: number;
   content: string;
+  sentiment?: string;
   created_at: string;
 }
 
@@ -53,39 +56,8 @@ interface GeneratedResult {
   editContent: string;
 }
 
-// 톤 라벨 배열
-const TONE_LABELS = ["감성적", "담백한", "전문적"];
-
-// 키워드 빈도 추출 (프론트 간단 분석)
-function extractKeywords(reviews: UnrepliedReview[]): { keyword: string; count: number }[] {
-  const STOP_WORDS = new Set(["이", "그", "저", "것", "수", "등", "더", "좀", "잘", "안", "못", "너무", "정말", "진짜", "아주", "매우", "되", "하", "있", "없", "들", "에서", "에", "를", "을", "의", "가", "은", "는", "도", "로", "으로", "와", "과", "한", "할", "합니다", "해요", "네요", "어요", "입니다", "이에요", "같아요", "인데", "인데요", "하고", "했", "됩니다", "되네요"]);
-  const TARGET_KEYWORDS = ["사이즈", "배송", "색상", "소재", "핏", "가격", "품질", "디자인", "착용감", "마감", "포장", "교환", "환불", "두께", "촉감", "무게", "길이", "세탁", "냄새", "통기성", "신축성", "봉제", "바느질"];
-
-  const freq = new Map<string, number>();
-
-  // 타겟 키워드 우선 매칭
-  reviews.forEach((r) => {
-    const text = r.content;
-    TARGET_KEYWORDS.forEach((kw) => {
-      if (text.includes(kw)) {
-        freq.set(kw, (freq.get(kw) || 0) + 1);
-      }
-    });
-    // 2글자 이상 한글 단어 추출
-    const words = text.match(/[가-힣]{2,}/g) || [];
-    words.forEach((w) => {
-      if (!STOP_WORDS.has(w) && !TARGET_KEYWORDS.includes(w) && w.length >= 2 && w.length <= 6) {
-        freq.set(w, (freq.get(w) || 0) + 1);
-      }
-    });
-  });
-
-  return Array.from(freq.entries())
-    .filter(([, count]) => count >= 2)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([keyword, count]) => ({ keyword, count }));
-}
+// 톤 라벨 배열 (중립적 라벨)
+const TONE_LABELS = ["후보 A", "후보 B", "후보 C"];
 
 export default function ReviewsPage() {
   const [groups, setGroups] = useState<GroupedReviews[]>([]);
@@ -97,16 +69,29 @@ export default function ReviewsPage() {
   const [error, setError] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [ratingFilter, setRatingFilter] = useState<number | null>(null);
-  const [keywordFilter, setKeywordFilter] = useState<string | null>(null);
+  // keywordFilter 제거됨 (UI에서 사용하지 않음)
   // 인라인 생성: 리뷰 ID → 생성 결과 매핑
   const [inlineResults, setInlineResults] = useState<Map<number, GeneratedResult>>(new Map());
   const [inlineLoading, setInlineLoading] = useState<Set<number>>(new Set());
   // 확장된 리뷰 카드 (클릭하여 인라인 AI 생성)
   const [expandedReviewId, setExpandedReviewId] = useState<number | null>(null);
+  // 톤 프로필 설정 여부
+  const [hasToneProfile, setHasToneProfile] = useState<boolean>(true);
+  // Undo 토스트
+  const [undoToast, setUndoToast] = useState<{ replyId: number; reviewId: number; message: string } | null>(null);
+  const [undoTimer, setUndoTimer] = useState<NodeJS.Timeout | null>(null);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     loadData();
   }, []);
+
+  // Q2: cleanup undoTimer on unmount
+  useEffect(() => {
+    return () => {
+      if (undoTimer) clearTimeout(undoTimer);
+    };
+  }, [undoTimer]);
 
   async function loadData() {
     setIsLoadingData(true);
@@ -124,6 +109,13 @@ export default function ReviewsPage() {
       } catch (e) {
         console.error("getUnrepliedReviews failed:", e);
         unrepliedRes = { reviews: [] };
+      }
+      // 톤 프로필 존재 여부 확인
+      try {
+        await getToneProfile();
+        setHasToneProfile(true);
+      } catch {
+        setHasToneProfile(false);
       }
 
       const products: ProductSummary[] = productsRes.products || [];
@@ -364,20 +356,13 @@ export default function ReviewsPage() {
     }
   }
 
-  async function handleConfirm(index: number) {
-    const item = results[index];
-    try {
-      await confirmReply(item.reply_id);
-      updateResult(index, { status: "confirmed" });
-      updateInlineResult(item.review_id, { status: "confirmed" });
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "확정에 실패했습니다.");
-    }
-  }
-
   async function handlePublish(index: number) {
     const item = results[index];
     try {
+      // confirm 단계를 자동으로 처리 (draft → confirmed → published)
+      if (item.status === "draft") {
+        await confirmReply(item.reply_id);
+      }
       await publishReply(item.reply_id);
       updateResult(index, { status: "published" });
       updateInlineResult(item.review_id, { status: "published" });
@@ -398,27 +383,26 @@ export default function ReviewsPage() {
       await publishReply(item.reply_id);
       updateInlineResult(reviewId, { status: "published" });
       window.dispatchEvent(new CustomEvent("reply-published"));
+      // Undo 토스트 표시 (5초)
+      if (undoTimer) clearTimeout(undoTimer);
+      setUndoToast({ replyId: item.reply_id, reviewId, message: "대댓글이 게시되었습니다." });
+      const timer = setTimeout(() => setUndoToast(null), 5000);
+      setUndoTimer(timer);
       await loadData();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "바로 게시에 실패했습니다.");
     }
   }
 
-  async function handleConfirmAll() {
-    for (let i = 0; i < results.length; i++) {
-      if (results[i].status === "draft") await handleConfirm(i);
-    }
-  }
-
   async function handlePublishAll() {
     for (let i = 0; i < results.length; i++) {
-      if (results[i].status === "confirmed" || results[i].status === "draft") {
+      if (results[i].status !== "published") {
         await handlePublish(i);
       }
     }
   }
 
-  function getFilteredGroups(): GroupedReviews[] {
+  const filteredGroups = useMemo(() => {
     let filtered = groups;
     if (ratingFilter !== null) {
       filtered = filtered
@@ -428,18 +412,8 @@ export default function ReviewsPage() {
         }))
         .filter((g) => g.reviews.length > 0);
     }
-    if (keywordFilter !== null) {
-      filtered = filtered
-        .map((g) => ({
-          ...g,
-          reviews: g.reviews.filter((r) => r.content.includes(keywordFilter!)),
-        }))
-        .filter((g) => g.reviews.length > 0);
-    }
     return filtered;
-  }
-
-  const filteredGroups = getFilteredGroups();
+  }, [groups, ratingFilter]);
 
   function updateResult(index: number, updates: Partial<GeneratedResult>) {
     setResults((prev) =>
@@ -455,8 +429,8 @@ export default function ReviewsPage() {
   const positiveCount = useMemo(() => allReviews.filter((r) => r.rating >= 4).length, [allReviews]);
   const negativeCount = useMemo(() => allReviews.filter((r) => r.rating <= 2).length, [allReviews]);
   const inquiryCount = useMemo(() => allReviews.filter((r) => r.rating === 3).length, [allReviews]);
-  const urgentCount = useMemo(() => allReviews.filter((r) => r.rating <= 2).length, [allReviews]);
-  const keywords = useMemo(() => extractKeywords(allReviews), [allReviews]);
+  const urgentCount = negativeCount; // 1-2점 = 긴급 대응 (동일 조건)
+  // keywords 제거됨 (UI에서 사용하지 않음)
 
   if (isLoadingData) {
     return <Spinner className="py-12" />;
@@ -478,6 +452,20 @@ export default function ReviewsPage() {
               다시 시도
             </button>
           )}
+        </div>
+      )}
+
+      {/* 톤 미설정 배너 */}
+      {!hasToneProfile && (
+        <div className="bg-amber-50 border border-amber-300 text-amber-800 text-sm p-4 rounded-lg mb-4 flex items-start gap-3">
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+          <div>
+            <p className="font-medium">브랜드 톤이 설정되지 않았습니다.</p>
+            <p className="text-xs text-amber-600 mt-0.5">먼저 톤을 설정해야 브랜드에 맞는 대댓글을 생성할 수 있어요.</p>
+            <Link href="/dashboard/tone" className="text-xs font-bold text-amber-700 hover:text-amber-900 mt-1.5 inline-block underline underline-offset-2">
+              톤 설정하러 가기 &rarr;
+            </Link>
+          </div>
         </div>
       )}
 
@@ -523,11 +511,12 @@ export default function ReviewsPage() {
           <div className="flex items-center gap-2 mb-1.5">
             <span className="text-xs text-gray-500 font-medium">감성 분포</span>
           </div>
-          <div className="flex h-3 rounded-full overflow-hidden bg-gray-100">
+          <div className="flex h-3 rounded-full overflow-hidden bg-gray-100" role="img" aria-label={`감성 분포: 긍정 ${positiveCount}건, 문의/중립 ${inquiryCount}건, 부정 ${negativeCount}건`}>
             {positiveCount > 0 && (
               <div
                 className="bg-green-400 transition-all"
                 style={{ width: `${(positiveCount / totalUnreplied) * 100}%` }}
+                role="presentation"
                 title={`긍정 ${positiveCount}건`}
               />
             )}
@@ -535,6 +524,7 @@ export default function ReviewsPage() {
               <div
                 className="bg-amber-400 transition-all"
                 style={{ width: `${(inquiryCount / totalUnreplied) * 100}%` }}
+                role="presentation"
                 title={`문의/중립 ${inquiryCount}건`}
               />
             )}
@@ -542,6 +532,7 @@ export default function ReviewsPage() {
               <div
                 className="bg-red-400 transition-all"
                 style={{ width: `${(negativeCount / totalUnreplied) * 100}%` }}
+                role="presentation"
                 title={`부정 ${negativeCount}건`}
               />
             )}
@@ -586,12 +577,6 @@ export default function ReviewsPage() {
             생성된 답변 {results.filter((r) => r.status !== "published").length}건 검토 대기
           </span>
           <div className="flex gap-2">
-            <button
-              onClick={handleConfirmAll}
-              className="px-3 py-1.5 text-xs bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-medium"
-            >
-              전체 확정
-            </button>
             <button
               onClick={handlePublishAll}
               className="px-3 py-1.5 text-xs bg-green-500 text-white rounded-lg hover:bg-green-600 font-medium"
@@ -659,8 +644,10 @@ export default function ReviewsPage() {
               </select>
               <button
                 onClick={handleBatchGenerate}
-                disabled={isGenerating}
-                className="px-4 py-1.5 text-xs bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-medium disabled:opacity-50 shadow-sm"
+                disabled={isGenerating || !hasToneProfile}
+                title={!hasToneProfile ? "브랜드 톤을 먼저 설정해주세요" : undefined}
+                aria-label={`선택한 ${selectedReviews.size}건 리뷰에 대해 대댓글 일괄 생성`}
+                className="px-4 py-1.5 text-xs bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
               >
                 {isGenerating ? "생성 중..." : `선택한 ${selectedReviews.size}건 일괄 생성`}
               </button>
@@ -743,6 +730,7 @@ export default function ReviewsPage() {
                                 checked={selectedReviews.has(review.id)}
                                 onChange={() => toggleReview(review.id)}
                                 className="w-4 h-4 mt-1 text-amber-500 rounded border-gray-300 focus:ring-amber-400"
+                                aria-label={`${review.author}의 리뷰 선택`}
                               />
                               <div
                                 className="flex-1 min-w-0"
@@ -753,8 +741,8 @@ export default function ReviewsPage() {
                                     setExpandedReviewId(null);
                                   } else {
                                     setExpandedReviewId(review.id);
-                                    // 아직 인라인 결과가 없으면 자동 생성
-                                    if (!inlineResults.has(review.id)) {
+                                    // 아직 인라인 결과가 없으면 자동 생성 (톤 프로필 있을 때만)
+                                    if (!inlineResults.has(review.id) && hasToneProfile) {
                                       handleInlineGenerate(review);
                                     }
                                   }
@@ -766,7 +754,7 @@ export default function ReviewsPage() {
                                       setExpandedReviewId(null);
                                     } else {
                                       setExpandedReviewId(review.id);
-                                      if (!inlineResults.has(review.id)) {
+                                      if (!inlineResults.has(review.id) && hasToneProfile) {
                                         handleInlineGenerate(review);
                                       }
                                     }
@@ -824,6 +812,16 @@ export default function ReviewsPage() {
                             {/* 인라인 AI 답변 영역 */}
                             {isExpanded && (
                               <div className="px-4 py-4 bg-gray-50/80 border-t border-gray-100">
+                                {!hasToneProfile && !inlineResult && (
+                                  <div className="text-center py-6">
+                                    <p className="text-sm text-amber-700 font-medium mb-1">톤 설정이 필요합니다</p>
+                                    <p className="text-xs text-gray-500 mb-3">브랜드 톤을 먼저 설정해야 AI 대댓글을 생성할 수 있어요.</p>
+                                    <Link href="/dashboard/tone" className="px-4 py-2 text-xs bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-medium inline-block">
+                                      톤 설정하러 가기 &rarr;
+                                    </Link>
+                                  </div>
+                                )}
+
                                 {isInlineLoading && !inlineResult && (
                                   <div className="flex items-center gap-3 py-6 justify-center">
                                     <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-amber-500" />
@@ -992,8 +990,10 @@ export default function ReviewsPage() {
             </div>
             <button
               onClick={handleBatchGenerate}
-              disabled={isGenerating}
-              className="w-full py-3 bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-medium text-sm disabled:opacity-50"
+              disabled={isGenerating || !hasToneProfile}
+              title={!hasToneProfile ? "브랜드 톤을 먼저 설정해주세요" : undefined}
+              aria-label={`선택한 ${selectedReviews.size}건 리뷰에 대해 대댓글 일괄 생성`}
+              className="w-full py-3 bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isGenerating ? (
                 <span className="flex items-center justify-center gap-2">
@@ -1007,6 +1007,32 @@ export default function ReviewsPage() {
           </div>
         )}
       </div>
+
+      {/* Undo 토스트 */}
+      {undoToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-5 py-3 rounded-lg shadow-xl flex items-center gap-4 z-[9999] animate-fade-in">
+          <span className="text-sm">{undoToast.message}</span>
+          <button
+            onClick={async () => {
+              try {
+                await unpublishReply(undoToast.replyId);
+                updateInlineResult(undoToast.reviewId, { status: "draft" });
+                setUndoToast(null);
+                if (undoTimer) clearTimeout(undoTimer);
+                await loadData();
+              } catch {
+                setError("실행 취소에 실패했습니다.");
+              }
+            }}
+            className="text-amber-400 hover:text-amber-300 text-sm font-semibold whitespace-nowrap"
+          >
+            실행 취소
+          </button>
+          <button onClick={() => { setUndoToast(null); if (undoTimer) clearTimeout(undoTimer); }} className="text-gray-400 hover:text-white">
+            ✕
+          </button>
+        </div>
+      )}
     </div>
   );
 }

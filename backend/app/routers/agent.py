@@ -26,7 +26,7 @@ from ..schemas import (
     ReviewOut,
 )
 from ..llm_service import classify_sentiment, generate_reply, generate_tone_preview
-from ..seed import _build_system_prompt
+from ..seed import build_system_prompt
 
 router = APIRouter(prefix="/api/agent", tags=["agent"])
 
@@ -78,7 +78,7 @@ async def create_tone_profile(body: ToneProfileCreate, db: Session = Depends(get
     except (FileNotFoundError, json.JSONDecodeError):
         pass
 
-    system_prompt = _build_system_prompt(
+    system_prompt = build_system_prompt(
         brand_name=body.brand_name,
         keywords=body.keywords,
         sample_replies=body.sample_replies,
@@ -190,21 +190,23 @@ async def generate_batch(body: BatchGenerateRequest, db: Session = Depends(get_d
     ]
     sentiment_results = await asyncio.gather(*sentiment_tasks)
 
-    # Generate replies sequentially to avoid rate limits (3 candidates each)
-    all_candidates = []
+    # Generate replies in parallel (Haiku is fast enough for parallel)
+    reply_tasks = []
     for review_req, sentiment_result in zip(body.reviews, sentiment_results):
         system_prompt = profile.system_prompt
         if review_req.tone_override and review_req.tone_override in TONE_OVERRIDES:
             system_prompt += f"\n\n[톤 변경 지시] 이번 대댓글은 다음 톤으로 작성하세요: {TONE_OVERRIDES[review_req.tone_override]}"
-        candidates = await generate_reply(
-            review_text=review_req.review_text,
-            sentiment=sentiment_result["sentiment"],
-            system_prompt=system_prompt,
-            rating=review_req.rating,
-            product_name=review_req.product_name,
-            num_candidates=3,
+        reply_tasks.append(
+            generate_reply(
+                review_text=review_req.review_text,
+                sentiment=sentiment_result["sentiment"],
+                system_prompt=system_prompt,
+                rating=review_req.rating,
+                product_name=review_req.product_name,
+                num_candidates=3,
+            )
         )
-        all_candidates.append(candidates)
+    all_candidates = await asyncio.gather(*reply_tasks)
 
     results = []
     for review_req, sentiment_result, candidates in zip(body.reviews, sentiment_results, all_candidates):
@@ -222,11 +224,9 @@ async def generate_batch(body: BatchGenerateRequest, db: Session = Depends(get_d
             source="batch",
         )
         db.add(reply)
-        db.commit()
-        db.refresh(reply)
+        db.flush()
 
         _add_history(db, reply.id, "created", draft)
-        db.commit()
 
         results.append(
             GenerateResponse(
@@ -238,6 +238,7 @@ async def generate_batch(body: BatchGenerateRequest, db: Session = Depends(get_d
             )
         )
 
+    db.commit()
     return BatchGenerateResponse(results=results)
 
 
@@ -292,6 +293,22 @@ def publish_reply(reply_id: int, db: Session = Depends(get_db)):
     )
 
 
+@router.post("/replies/{reply_id}/unpublish", response_model=ReplyOut)
+def unpublish_reply(reply_id: int, db: Session = Depends(get_db)):
+    """Revert a published reply back to draft status."""
+    reply = db.query(Reply).filter(Reply.id == reply_id).first()
+    if not reply:
+        raise HTTPException(status_code=404, detail="Reply not found")
+    reply.status = "draft"
+    reply.published_at = None
+    reply.updated_at = datetime.now(timezone.utc)
+
+    _add_history(db, reply.id, "unpublished", reply.content)
+    db.commit()
+    db.refresh(reply)
+    return ReplyOut.model_validate(reply)
+
+
 @router.post("/replies/{reply_id}/regenerate", response_model=RegenerateResponse)
 async def regenerate_reply(reply_id: int, db: Session = Depends(get_db)):
     reply = db.query(Reply).filter(Reply.id == reply_id).first()
@@ -308,12 +325,13 @@ async def regenerate_reply(reply_id: int, db: Session = Depends(get_db)):
     sentiment_result = await classify_sentiment(review_text, review.rating if review else None)
     sentiment = sentiment_result["sentiment"]
 
-    new_draft = await generate_reply(
+    candidates = await generate_reply(
         review_text=review_text,
         sentiment=sentiment,
         system_prompt=profile.system_prompt,
         rating=review.rating if review else None,
     )
+    new_draft = candidates[0] if isinstance(candidates, list) else candidates
 
     reply.content = new_draft
     reply.sentiment = sentiment
@@ -338,17 +356,20 @@ def get_history(
     page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
-    query = (
-        db.query(Reply)
+    base_query = db.query(Reply)
+    if status:
+        base_query = base_query.filter(Reply.status == status)
+
+    total = base_query.count()
+    replies = (
+        base_query
         .outerjoin(Review, Reply.review_id == Review.id)
         .options(joinedload(Reply.review))
         .order_by(Reply.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
     )
-    if status:
-        query = query.filter(Reply.status == status)
-
-    total = query.count()
-    replies = query.offset((page - 1) * page_size).limit(page_size).all()
 
     history_items = []
     for reply in replies:

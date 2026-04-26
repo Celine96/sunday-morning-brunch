@@ -133,7 +133,7 @@ def seed_database():
                 if sample.get("reply"):
                     sample_replies.append(sample["reply"])
 
-        system_prompt = _build_system_prompt(
+        system_prompt = build_system_prompt(
             brand_name=persona["brand_name"],
             keywords=persona["tone_keywords"],
             sample_replies=sample_replies,
@@ -159,7 +159,7 @@ def seed_database():
         db.close()
 
 
-def _build_system_prompt(
+def build_system_prompt(
     brand_name: str,
     keywords: list,
     sample_replies: list,

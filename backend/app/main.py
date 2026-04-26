@@ -33,7 +33,7 @@ app.add_middleware(
         f"https://{host}" for host in [os.environ.get("RENDER_EXTERNAL_HOSTNAME", "")]
         if host
     ],
-    allow_origin_regex=r"https://.*\.onrender\.com",
+    allow_origin_regex=r"https://(smb-web|sub-api-qq2o)\.onrender\.com",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

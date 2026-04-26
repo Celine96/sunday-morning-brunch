@@ -34,17 +34,24 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // selectedSize, selectedColor: 데모 UI용 상태 (추후 장바구니 연동 시 활용)
   const [selectedSize, setSelectedSize] = useState("M");
   const [selectedColor, setSelectedColor] = useState(0);
   const [mainImageIdx, setMainImageIdx] = useState(0);
 
   useEffect(() => {
+    if (Number.isNaN(productId)) {
+      setError("잘못된 상품 ID입니다.");
+      setIsLoading(false);
+      return;
+    }
     loadProduct();
 
     // FAB에서 대댓글 게시 시 자동 새로고침
     const handleReplyPublished = () => loadProduct();
     window.addEventListener("reply-published", handleReplyPublished);
     return () => window.removeEventListener("reply-published", handleReplyPublished);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId]);
 
   async function loadProduct() {
@@ -83,10 +90,8 @@ export default function ProductDetailPage() {
     return <div className="text-center py-12 text-warm-400">상품을 찾을 수 없습니다.</div>;
   }
 
-  // Generate thumbnail list (use same image repeated for demo)
-  const thumbnails = product.image_url
-    ? [product.image_url, product.image_url, product.image_url, product.image_url]
-    : [];
+  // Generate thumbnail list - only show gallery if multiple unique images exist
+  const thumbnails = product.image_url ? [product.image_url] : [];
 
   const krwPrice = formatKRW(product.price);
   const originalPrice = formatOriginalKRW(product.price);
@@ -111,8 +116,8 @@ export default function ProductDetailPage() {
               size="lg"
             />
           </div>
-          {/* Thumbnails */}
-          {thumbnails.length > 0 && (
+          {/* Thumbnails - only show if multiple unique images */}
+          {thumbnails.length > 1 && (
             <div className="mt-3 flex gap-2">
               {thumbnails.map((thumb, idx) => (
                 <button
