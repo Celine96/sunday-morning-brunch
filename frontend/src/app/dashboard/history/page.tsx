@@ -5,6 +5,7 @@ import StatusBadge from "../../../components/StatusBadge";
 import SentimentBadge from "../../../components/SentimentBadge";
 import Spinner from "../../../components/Spinner";
 import { getHistory, getHistoryDetail } from "../../../lib/api";
+import { formatDate } from "../../../lib/utils";
 import type { HistoryItem, HistoryDetail } from "../../../lib/types";
 
 const ACTION_LABELS: Record<string, string> = {
@@ -128,9 +129,7 @@ export default function HistoryPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-xs text-gray-400">
-                        {item.created_at
-                          ? new Date(item.created_at).toLocaleDateString("ko-KR")
-                          : ""}
+                        {formatDate(item.created_at)}
                       </span>
                       {item.sentiment && <SentimentBadge sentiment={item.sentiment} />}
                       <StatusBadge status={item.status} />
@@ -196,7 +195,7 @@ export default function HistoryPage() {
                                   {ACTION_LABELS[h.action] || h.action}
                                   {h.action === "edited" && h.content_snapshot && (
                                     <span className="text-gray-400 ml-1">
-                                      — &ldquo;{h.content_snapshot.slice(0, 30)}...&rdquo;
+                                      — &ldquo;{h.content_snapshot.length > 30 ? h.content_snapshot.slice(0, 30) + "..." : h.content_snapshot}&rdquo;
                                     </span>
                                   )}
                                 </span>

@@ -8,7 +8,7 @@ import type {
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const API_TIMEOUT_MS = 30_000;
+const API_TIMEOUT_MS = 60_000;
 
 async function fetchAPI<T = unknown>(path: string, options?: RequestInit): Promise<T> {
   const controller = new AbortController();

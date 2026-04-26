@@ -5,7 +5,7 @@ from typing import Optional
 from datetime import datetime, timezone
 
 from ..database import get_db
-from ..models import Product, Review, Reply
+from ..models import Product, Review, Reply, ReplyHistory
 from ..schemas import (
     ProductSummary,
     ProductDetail,
@@ -69,7 +69,7 @@ def get_unreplied_reviews(
 ):
     """Get reviews that have no replies (for FAB mini panel)."""
     query = db.query(Review).outerjoin(Reply).filter(Reply.id.is_(None))
-    if product_id:
+    if product_id is not None:
         query = query.filter(Review.product_id == product_id)
     reviews = query.order_by(Review.created_at.desc()).all()
     return {"reviews": [ReviewOut.model_validate(r) for r in reviews]}
@@ -111,6 +111,8 @@ def update_reply(reply_id: int, body: ReplyUpdate, db: Session = Depends(get_db)
         raise HTTPException(status_code=404, detail="Reply not found")
     reply.content = body.content
     reply.updated_at = datetime.now(timezone.utc)
+    history = ReplyHistory(reply_id=reply.id, action="edited", content_snapshot=body.content)
+    db.add(history)
     db.commit()
     db.refresh(reply)
     return ReplyOut.model_validate(reply)

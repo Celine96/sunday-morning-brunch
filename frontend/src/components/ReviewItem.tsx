@@ -1,6 +1,7 @@
 "use client";
 
 import StarRating from "./StarRating";
+import { formatDate } from "../lib/utils";
 
 interface Reply {
   id: number;
@@ -27,14 +28,14 @@ export default function ReviewItem({
   replies,
 }: ReviewItemProps) {
   const publishedReplies = replies.filter((r) => r.status === "published");
-  const date = new Date(created_at).toLocaleDateString("ko-KR");
+  const date = formatDate(created_at);
 
   return (
     <div className="border border-warm-200 rounded-xl p-5 bg-white/80">
       <div className="flex items-center gap-2 mb-2 flex-wrap">
         {/* Author avatar placeholder */}
         <span className="w-7 h-7 rounded-full bg-cream-300 flex items-center justify-center text-xs text-warm-600 font-medium">
-          {author.charAt(0).toUpperCase()}
+          {(author.charAt(0) || "?").toUpperCase()}
         </span>
         <span className="font-medium text-sm text-warm-800">{author}</span>
         <StarRating rating={rating} />
@@ -58,7 +59,7 @@ export default function ReviewItem({
                   Sunday Morning Brunch
                 </span>
                 <span className="text-xs text-warm-400">
-                  {new Date(reply.created_at).toLocaleDateString("ko-KR")}
+                  {formatDate(reply.created_at)}
                 </span>
               </div>
               <p className="text-sm text-warm-700 whitespace-pre-wrap">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import SentimentBadge from "../../../components/SentimentBadge";
 import StatusBadge from "../../../components/StatusBadge";
@@ -17,6 +17,7 @@ import {
   getToneProfile,
   unpublishReply,
 } from "../../../lib/api";
+import { formatDate } from "../../../lib/utils";
 
 interface ProductSummary {
   id: number;
@@ -79,19 +80,19 @@ export default function ReviewsPage() {
   const [hasToneProfile, setHasToneProfile] = useState<boolean>(true);
   // Undo 토스트
   const [undoToast, setUndoToast] = useState<{ replyId: number; reviewId: number; message: string } | null>(null);
-  const [undoTimer, setUndoTimer] = useState<NodeJS.Timeout | null>(null);
+  const undoTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     loadData();
   }, []);
 
-  // Q2: cleanup undoTimer on unmount
+  // cleanup undoTimer on unmount
   useEffect(() => {
     return () => {
-      if (undoTimer) clearTimeout(undoTimer);
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
     };
-  }, [undoTimer]);
+  }, []);
 
   async function loadData() {
     setIsLoadingData(true);
@@ -380,14 +381,18 @@ export default function ReviewsPage() {
     try {
       await confirmReply(item.reply_id);
       updateInlineResult(reviewId, { status: "confirmed" });
-      await publishReply(item.reply_id);
+      try {
+        await publishReply(item.reply_id);
+      } catch {
+        setError("게시에 실패했습니다. 확정 상태로 유지됩니다.");
+        return;
+      }
       updateInlineResult(reviewId, { status: "published" });
       window.dispatchEvent(new CustomEvent("reply-published"));
-      // Undo 토스트 표시 (5초)
-      if (undoTimer) clearTimeout(undoTimer);
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
       setUndoToast({ replyId: item.reply_id, reviewId, message: "대댓글이 게시되었습니다." });
       const timer = setTimeout(() => setUndoToast(null), 5000);
-      setUndoTimer(timer);
+      undoTimerRef.current = timer;
       await loadData();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "바로 게시에 실패했습니다.");
@@ -395,9 +400,10 @@ export default function ReviewsPage() {
   }
 
   async function handlePublishAll() {
-    for (let i = 0; i < results.length; i++) {
-      if (results[i].status !== "published") {
-        await handlePublish(i);
+    const snapshot = results.map((r, i) => ({ ...r, _index: i }));
+    for (const item of snapshot) {
+      if (item.status !== "published") {
+        await handlePublish(item._index);
       }
     }
   }
@@ -511,7 +517,7 @@ export default function ReviewsPage() {
           <div className="flex items-center gap-2 mb-1.5">
             <span className="text-xs text-gray-500 font-medium">감성 분포</span>
           </div>
-          <div className="flex h-3 rounded-full overflow-hidden bg-gray-100" role="img" aria-label={`감성 분포: 긍정 ${positiveCount}건, 문의/중립 ${inquiryCount}건, 부정 ${negativeCount}건`}>
+          <div className="flex h-3 rounded-full overflow-hidden bg-gray-100" role="img" aria-label={`감성 분포: 긍정 ${positiveCount}건, 중립(3점) ${inquiryCount}건, 부정 ${negativeCount}건`}>
             {positiveCount > 0 && (
               <div
                 className="bg-green-400 transition-all"
@@ -525,7 +531,7 @@ export default function ReviewsPage() {
                 className="bg-amber-400 transition-all"
                 style={{ width: `${(inquiryCount / totalUnreplied) * 100}%` }}
                 role="presentation"
-                title={`문의/중립 ${inquiryCount}건`}
+                title={`중립(3점) ${inquiryCount}건`}
               />
             )}
             {negativeCount > 0 && (
@@ -542,7 +548,7 @@ export default function ReviewsPage() {
               <span className="w-2.5 h-2.5 rounded-full bg-green-400 inline-block" /> 긍정 {positiveCount}
             </span>
             <span className="flex items-center gap-1 text-xs text-gray-500">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" /> 문의/중립 {inquiryCount}
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" /> 중립(3점) {inquiryCount}
             </span>
             <span className="flex items-center gap-1 text-xs text-gray-500">
               <span className="w-2.5 h-2.5 rounded-full bg-red-400 inline-block" /> 부정 {negativeCount}
@@ -563,7 +569,7 @@ export default function ReviewsPage() {
             {results.filter((r) => r.status === "published").map((item) => (
               <div key={item.reply_id} className="text-xs text-green-600 flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
-                <span className="truncate">{item.review_text.slice(0, 50)}...</span>
+                <span className="truncate">{item.review_text.length > 50 ? item.review_text.slice(0, 50) + "..." : item.review_text}</span>
               </div>
             ))}
           </div>
@@ -775,7 +781,7 @@ export default function ReviewsPage() {
                                     </span>
                                   )}
                                   <span className="text-xs text-gray-500 font-medium">
-                                    {new Date(review.created_at).toLocaleDateString("ko-KR")}
+                                    {formatDate(review.created_at)}
                                   </span>
                                   <span className="text-xs text-gray-400">{review.author}</span>
                                   {review.product_name && (
@@ -838,7 +844,7 @@ export default function ReviewsPage() {
                                         <StatusBadge status={inlineResult.status} />
                                       </div>
                                       <select
-                                        onChange={(e) => { if (e.target.value) { handleInlineToneChange(review.id, e.target.value); e.target.value = ""; } }}
+                                        onChange={(e) => { if (e.target.value) { handleInlineToneChange(review.id, e.target.value); } }}
                                         className="px-2 py-1 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
                                         aria-label="말투 변경"
                                         disabled={inlineResult.status === ("regenerating" as string)}
@@ -1018,7 +1024,7 @@ export default function ReviewsPage() {
                 await unpublishReply(undoToast.replyId);
                 updateInlineResult(undoToast.reviewId, { status: "draft" });
                 setUndoToast(null);
-                if (undoTimer) clearTimeout(undoTimer);
+                if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
                 await loadData();
               } catch {
                 setError("실행 취소에 실패했습니다.");
@@ -1028,7 +1034,7 @@ export default function ReviewsPage() {
           >
             실행 취소
           </button>
-          <button onClick={() => { setUndoToast(null); if (undoTimer) clearTimeout(undoTimer); }} className="text-gray-400 hover:text-white">
+          <button onClick={() => { setUndoToast(null); if (undoTimerRef.current) clearTimeout(undoTimerRef.current); }} className="text-gray-400 hover:text-white">
             ✕
           </button>
         </div>

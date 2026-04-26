@@ -56,11 +56,11 @@ class ProductDetail(ProductSummary):
 
 # --- Reply Schemas ---
 class ReplyCreate(BaseModel):
-    content: str
+    content: str = Field(..., min_length=1)
 
 
 class ReplyUpdate(BaseModel):
-    content: str
+    content: str = Field(..., min_length=1)
 
 
 # --- Tone Profile Schemas ---
@@ -137,7 +137,7 @@ class GenerateResponse(BaseModel):
 
 
 class BatchGenerateRequest(BaseModel):
-    reviews: List[GenerateRequest]
+    reviews: List[GenerateRequest] = Field(..., max_length=50)
 
 
 class BatchGenerateResponse(BaseModel):

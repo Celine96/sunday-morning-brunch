@@ -55,7 +55,7 @@ class Reply(Base):
     published_at = Column(DateTime, nullable=True)
 
     review = relationship("Review", back_populates="replies")
-    history = relationship("ReplyHistory", back_populates="reply", lazy="select")
+    history = relationship("ReplyHistory", back_populates="reply", lazy="select", cascade="all, delete-orphan")
 
 
 class ToneProfile(Base):

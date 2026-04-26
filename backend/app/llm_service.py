@@ -156,7 +156,7 @@ async def generate_tone_preview(system_prompt: str) -> list:
     """Generate preview replies for tone profile testing."""
     test_reviews = [
         {"text": "배송이 빨라서 좋았어요! 품질도 괜찮네요.", "sentiment": "positive"},
-        {"text": "색상이 사진과 달라요. 교환 가능한가요?", "sentiment": "negative"},
+        {"text": "색상이 사진과 달라요. 교환 가능한가요?", "sentiment": "inquiry"},
         {"text": "선물용으로 포장 가능한가요?", "sentiment": "inquiry"},
     ]
 

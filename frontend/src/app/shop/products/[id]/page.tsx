@@ -45,6 +45,7 @@ export default function ProductDetailPage() {
       setIsLoading(false);
       return;
     }
+    setMainImageIdx(0);
     loadProduct();
 
     // FAB에서 대댓글 게시 시 자동 새로고침

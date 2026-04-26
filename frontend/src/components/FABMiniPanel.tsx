@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import SentimentBadge from "./SentimentBadge";
@@ -50,6 +50,8 @@ export default function FABMiniPanel() {
   const [unrepliedCount, setUnrepliedCount] = useState(0);
   const [hasToneProfile, setHasToneProfile] = useState<boolean>(true);
   const pathname = usePathname();
+  const mountedRef = useRef(true);
+  useEffect(() => { return () => { mountedRef.current = false; }; }, []);
 
   // Extract product ID from pathname
   const productIdMatch = pathname.match(/\/shop\/products\/(\d+)/);
@@ -63,21 +65,24 @@ export default function FABMiniPanel() {
   async function loadUnrepliedReviews() {
     setLoadError(null);
     try {
-      const data = await getUnrepliedReviews(currentProductId);
-      setReviews(data.reviews || []);
-      setUnrepliedCount(data.reviews?.length || 0);
+      const [reviewsResult, toneResult] = await Promise.allSettled([
+        getUnrepliedReviews(currentProductId),
+        getToneProfile(),
+      ]);
+      if (reviewsResult.status === "fulfilled") {
+        setReviews(reviewsResult.value.reviews || []);
+        setUnrepliedCount(reviewsResult.value.reviews?.length || 0);
+      } else {
+        setLoadError("데이터를 불러올 수 없습니다. 다시 시도해주세요.");
+        setReviews([]);
+        setUnrepliedCount(0);
+      }
+      setHasToneProfile(toneResult.status === "fulfilled");
     } catch (err) {
-      console.error("Failed to load unreplied reviews:", err);
+      console.error("Failed to load:", err);
       setLoadError("데이터를 불러올 수 없습니다. 다시 시도해주세요.");
       setReviews([]);
       setUnrepliedCount(0);
-    }
-    // 톤 프로필 존재 여부 확인
-    try {
-      await getToneProfile();
-      setHasToneProfile(true);
-    } catch {
-      setHasToneProfile(false);
     }
   }
 
@@ -434,8 +439,12 @@ export default function FABMiniPanel() {
                                   수정
                                 </button>
                                 <button
-                                  onClick={(e) => {
+                                  onClick={async (e) => {
                                     e.stopPropagation();
+                                    // Update server with selected candidate content first
+                                    try {
+                                      await updateAgentReply(generatedReply.reply_id, c);
+                                    } catch {}
                                     setGeneratedReply({ ...generatedReply, selectedCandidate: ci, draft_reply: c });
                                     setEditContent(c);
                                     handlePublish(generatedReply.reply_id);
@@ -477,7 +486,7 @@ export default function FABMiniPanel() {
                     {generatedReply.status !== "published" && (
                       <div className="flex gap-1.5 mt-3 flex-wrap">
                         <select
-                          onChange={(e) => { if (e.target.value) { handleToneChange(e.target.value); e.target.value = ""; } }}
+                          onChange={(e) => { if (e.target.value) { handleToneChange(e.target.value); } }}
                           className="px-2 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700"
                           aria-label="말투 변경"
                           disabled={isLoading}

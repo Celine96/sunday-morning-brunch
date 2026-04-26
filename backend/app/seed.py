@@ -3,7 +3,7 @@ import csv
 import json
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .database import engine, SessionLocal, Base
 from .models import Product, Review, ToneProfile
@@ -105,7 +105,7 @@ def seed_database():
                     sentiment=map_sentiment(score, row.get("review_type", "")),
                     sentiment_score=score,
                     review_type=row.get("review_type", ""),
-                    created_at=datetime.utcnow(),
+                    created_at=datetime.now(timezone.utc),
                 )
                 db.add(review)
 

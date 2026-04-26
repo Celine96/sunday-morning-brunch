@@ -221,7 +221,7 @@ async def generate_batch(body: BatchGenerateRequest, db: Session = Depends(get_d
             status="draft",
             sentiment=sentiment,
             confidence=confidence,
-            source="batch",
+            source=review_req.source or "batch",
         )
         db.add(reply)
         db.flush()
@@ -276,6 +276,8 @@ def publish_reply(reply_id: int, db: Session = Depends(get_db)):
     reply = db.query(Reply).filter(Reply.id == reply_id).first()
     if not reply:
         raise HTTPException(status_code=404, detail="Reply not found")
+    if reply.status == "published":
+        raise HTTPException(status_code=400, detail="이미 게시된 대댓글입니다.")
 
     # Post to shop (internal - just update status since it's same DB)
     reply.status = "published"
@@ -299,6 +301,8 @@ def unpublish_reply(reply_id: int, db: Session = Depends(get_db)):
     reply = db.query(Reply).filter(Reply.id == reply_id).first()
     if not reply:
         raise HTTPException(status_code=404, detail="Reply not found")
+    if reply.status != "published":
+        raise HTTPException(status_code=400, detail="게시된 대댓글만 게시 취소할 수 있습니다.")
     reply.status = "draft"
     reply.published_at = None
     reply.updated_at = datetime.now(timezone.utc)
@@ -319,17 +323,19 @@ async def regenerate_reply(reply_id: int, db: Session = Depends(get_db)):
 
     # Find the original review
     review = db.query(Review).filter(Review.id == reply.review_id).first()
-    review_text = review.content if review else ""
+    if not review:
+        raise HTTPException(status_code=400, detail="원본 리뷰를 찾을 수 없어 재생성할 수 없습니다.")
+    review_text = review.content
 
     # Re-classify and regenerate
-    sentiment_result = await classify_sentiment(review_text, review.rating if review else None)
+    sentiment_result = await classify_sentiment(review_text, review.rating)
     sentiment = sentiment_result["sentiment"]
 
     candidates = await generate_reply(
         review_text=review_text,
         sentiment=sentiment,
         system_prompt=profile.system_prompt,
-        rating=review.rating if review else None,
+        rating=review.rating,
     )
     new_draft = candidates[0] if isinstance(candidates, list) else candidates
 
@@ -379,8 +385,8 @@ def get_history(
             "id": reply.id,
             "review_id": reply.review_id,
             "review_summary": review_summary,
-            "reply_text": reply.content[:50] + "..." if len(reply.content) > 50 else reply.content,
-            "full_reply_text": reply.content,
+            "reply_text": (reply.content[:50] + "..." if len(reply.content) > 50 else reply.content) if reply.content else "",
+            "full_reply_text": reply.content or "",
             "sentiment": reply.sentiment,
             "status": reply.status,
             "created_at": reply.created_at.isoformat() if reply.created_at else None,
