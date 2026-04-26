@@ -56,10 +56,10 @@ export default function DashboardLayout({
         className={`fixed md:sticky top-0 left-0 z-50 md:z-auto h-screen w-56 border-r border-gray-200 flex flex-col transition-transform md:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         } md:flex`}
-        style={{ backgroundColor: '#E8EDDF' }}
+        style={{ backgroundColor: '#FFF3E0' }}
       >
         {/* Brand */}
-        <div className="px-4 py-5 border-b border-gray-200/50" style={{ backgroundColor: '#D4DCCA' }}>
+        <div className="px-4 py-5 border-b border-gray-200/50" style={{ backgroundColor: '#FFE0B2' }}>
           <Link href="/dashboard/reviews" className="block">
             <h1 className="text-base font-bold text-gray-900 leading-tight">
               Sunday Morning
@@ -86,7 +86,7 @@ export default function DashboardLayout({
                     ? "text-gray-900"
                     : "text-gray-600 hover:text-gray-900"
                 }`}
-                style={isActive ? { borderLeft: '3px solid #6B705C', paddingLeft: '9px', backgroundColor: 'rgba(255,255,255,0.5)' } : {}}
+                style={isActive ? { borderLeft: '3px solid #F57C00', paddingLeft: '9px', backgroundColor: 'rgba(255,255,255,0.5)' } : {}}
               >
                 {navIcons[item.iconKey]}
                 {item.label}
