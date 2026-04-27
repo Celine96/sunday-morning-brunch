@@ -2,9 +2,36 @@
 import asyncio
 import os
 import json
+import re
 from anthropic import Anthropic
 
 client = None
+
+
+def _parse_json_response(text: str) -> dict:
+    """Parse JSON from LLM response, handling code blocks and extra text."""
+    if not text:
+        raise ValueError("Empty response from LLM")
+    # Try direct parse first
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    # Try extracting from markdown code block: ```json ... ``` or ``` ... ```
+    code_block = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
+    if code_block:
+        try:
+            return json.loads(code_block.group(1).strip())
+        except json.JSONDecodeError:
+            pass
+    # Try finding first { ... } in the text
+    brace_match = re.search(r"\{[\s\S]*\}", text)
+    if brace_match:
+        try:
+            return json.loads(brace_match.group(0))
+        except json.JSONDecodeError:
+            pass
+    raise ValueError(f"Could not parse JSON from response: {text[:200]}")
 
 
 def get_client() -> Anthropic:
@@ -45,7 +72,7 @@ async def classify_sentiment(review_text: str, rating: int = None) -> dict:
             messages=[{"role": "user", "content": user_message}],
         )
         text = response.content[0].text.strip()
-        result = json.loads(text)
+        result = _parse_json_response(text)
         return {
             "sentiment": result.get("sentiment", "other"),
             "confidence": float(result.get("confidence", 0.5)),
@@ -128,7 +155,7 @@ async def generate_reply(
             messages=[{"role": "user", "content": user_message}],
         )
         text = response.content[0].text.strip()
-        result = json.loads(text)
+        result = _parse_json_response(text)
         candidates = result.get("replies", [text])
         # 항상 num_candidates 개수 보장
         while len(candidates) < num_candidates:
