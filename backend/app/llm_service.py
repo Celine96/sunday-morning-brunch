@@ -157,26 +157,57 @@ async def generate_reply(
         text = response.content[0].text.strip()
         result = _parse_json_response(text)
         candidates = result.get("replies", [text])
-        # 항상 num_candidates 개수 보장
-        while len(candidates) < num_candidates:
-            candidates.append(candidates[-1] if candidates else "")
-        return candidates[:num_candidates]
+        # 중복 제거: LLM이 동일한 후보를 반환한 경우 고유한 것만 유지
+        unique = list(dict.fromkeys(candidates))
+        # 부족하면 재시도 (1회)
+        if len(unique) < num_candidates:
+            try:
+                retry_response = await asyncio.to_thread(
+                    c.messages.create,
+                    model="claude-haiku-4-5-20251001",
+                    max_tokens=1500,
+                    system=system_prompt,
+                    temperature=0.9,
+                    messages=[{"role": "user", "content": user_message}],
+                )
+                retry_text = retry_response.content[0].text.strip()
+                retry_result = _parse_json_response(retry_text)
+                for r in retry_result.get("replies", []):
+                    if r not in unique:
+                        unique.append(r)
+            except Exception:
+                pass
+        return unique[:num_candidates] if len(unique) >= num_candidates else unique + unique[:num_candidates - len(unique)]
     except Exception as e:
         print(f"Reply generation error: {e}")
-        fallback = _fallback_reply(review_text, sentiment)
-        return [fallback] * num_candidates
+        return _fallback_replies(review_text, sentiment, num_candidates)
 
 
-def _fallback_reply(review_text: str, sentiment: str) -> str:
-    """Fallback reply when LLM is unavailable."""
-    if sentiment == "positive":
-        return "안녕하세요, 고객님! 소중한 후기 남겨주셔서 정말 감사합니다 😊 만족스러운 경험을 드릴 수 있어 저희도 기쁩니다. 앞으로도 좋은 제품으로 보답하겠습니다!"
-    elif sentiment == "negative":
-        return "안녕하세요, 고객님. 불편을 드려 진심으로 죄송합니다 😔 말씀해 주신 부분 꼼꼼히 확인하여 개선하겠습니다. 고객센터로 연락 주시면 빠르게 도와드리겠습니다."
-    elif sentiment == "inquiry":
-        return "안녕하세요, 고객님! 문의 감사합니다 😊 해당 사항에 대해 자세히 안내드리겠습니다. 추가 궁금한 점이 있으시면 편하게 말씀해 주세요!"
-    else:
-        return "안녕하세요, 고객님! 소중한 의견 감사합니다 😊 더 나은 서비스를 위해 항상 노력하겠습니다. 오늘도 편안한 하루 되세요!"
+def _fallback_replies(review_text: str, sentiment: str, num: int = 3) -> list[str]:
+    """Fallback replies when LLM is unavailable. Returns distinct variants."""
+    templates = {
+        "positive": [
+            "안녕하세요, 고객님! 소중한 후기 남겨주셔서 정말 감사합니다 😊 만족스러운 경험을 드릴 수 있어 저희도 기쁩니다. 앞으로도 좋은 제품으로 보답하겠습니다!",
+            "고객님, 따뜻한 후기 감사합니다 ☀️ 좋은 경험이 되셨다니 정말 기쁘네요. 앞으로도 편안한 일상을 함께할 수 있도록 노력하겠습니다!",
+            "소중한 리뷰 감사드립니다 🧡 고객님께서 만족하셨다는 말씀이 저희에게 큰 힘이 됩니다. 더 좋은 제품으로 찾아뵙겠습니다!",
+        ],
+        "negative": [
+            "안녕하세요, 고객님. 불편을 드려 진심으로 죄송합니다 😔 말씀해 주신 부분 꼼꼼히 확인하여 개선하겠습니다. 고객센터로 연락 주시면 빠르게 도와드리겠습니다.",
+            "고객님, 기대에 못 미쳐 죄송합니다. 말씀해 주신 내용을 내부에서 꼭 검토하겠습니다. 고객센터(02-1234-5678)로 연락 주시면 신속히 안내드리겠습니다.",
+            "불편을 끼쳐드려 정말 죄송합니다 😔 고객님의 소중한 의견을 반영하여 개선해 나가겠습니다. 추가 도움이 필요하시면 고객센터로 편하게 연락 주세요.",
+        ],
+        "inquiry": [
+            "안녕하세요, 고객님! 문의 감사합니다 😊 해당 사항에 대해 자세히 안내드리겠습니다. 추가 궁금한 점이 있으시면 편하게 말씀해 주세요!",
+            "고객님, 궁금하신 점을 남겨주셔서 감사합니다 ☀️ 자세한 내용은 고객센터를 통해 안내드릴 수 있습니다. 편하게 문의해 주세요!",
+            "문의해 주셔서 감사합니다 😊 고객님께서 궁금해하신 부분, 고객센터에서 친절히 안내드리겠습니다. 언제든 편하게 연락 주세요!",
+        ],
+    }
+    fallbacks = templates.get(sentiment, [
+        "안녕하세요, 고객님! 소중한 의견 감사합니다 😊 더 나은 서비스를 위해 항상 노력하겠습니다. 오늘도 편안한 하루 되세요!",
+        "고객님, 의견 남겨주셔서 감사합니다 ☀️ 말씀해 주신 부분 참고하여 더 나은 브랜드가 되겠습니다!",
+        "소중한 리뷰 감사드립니다 🧡 고객님의 목소리에 귀 기울이며 발전하는 Sunday Morning Brunch가 되겠습니다.",
+    ])
+    return fallbacks[:num]
 
 
 async def generate_tone_preview(system_prompt: str) -> list:
