@@ -563,7 +563,8 @@ export default function ReviewsPage() {
         </div>
       )}
 
-      {/* 키워드 태그 — 제거됨 */}
+      {/* 통계 / 미답변 리뷰 구분선 */}
+      <div className="border-t border-gray-200 my-6" />
 
       {/* ===== 1차: 생성 결과 검토 영역 (일괄 생성 결과, 인라인 결과와 별도) ===== */}
       {results.filter((r) => r.status === "published").length > 0 && (

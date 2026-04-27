@@ -60,15 +60,21 @@ export default function DashboardLayout({
       >
         {/* Brand */}
         <div className="px-4 py-5 border-b border-gray-200/50" style={{ backgroundColor: '#FFE0B2' }}>
-          <Link href="/dashboard/reviews" className="block">
-            <h1 className="text-base font-bold text-gray-900 leading-tight">
-              Sunday Morning
-              <br />
-              Brunch
-            </h1>
-            <p className="text-xs text-gray-500 mt-1 font-medium">
-              리뷰 대댓글 관리
-            </p>
+          <Link href="/dashboard/reviews" className="flex items-center gap-2.5">
+            {/* 말풍선 로고 */}
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#F57C00' }}>
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 011.037-.443 48.282 48.282 0 005.68-.494c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="text-sm font-bold text-gray-900 leading-tight">
+                리뷰 대댓글 관리
+              </h1>
+              <p className="text-[10px] text-gray-500 mt-0.5">
+                Sunday Morning Brunch
+              </p>
+            </div>
           </Link>
         </div>
 
