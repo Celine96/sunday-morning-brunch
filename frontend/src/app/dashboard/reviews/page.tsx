@@ -19,6 +19,9 @@ import {
 } from "../../../lib/api";
 import { formatDate } from "../../../lib/utils";
 
+// NOTE: Generate/publish/tone logic is duplicated with components/FABMiniPanel.tsx
+// TODO: Extract shared useReplyGeneration hook for deduplication
+
 interface ProductSummary {
   id: number;
   name: string;
@@ -224,6 +227,9 @@ export default function ReviewsPage() {
       }));
 
       const response = await generateBatchReplies(reviews);
+      // IMPORTANT: API returns results in same order as request.
+      // If backend changes to parallel processing with reordering,
+      // match by review_id instead of index.
       const newResults: GeneratedResult[] = response.results.map(
         (r: { reply_id: number; draft_reply: string; candidates: string[]; sentiment: string; confidence: number }, i: number) => ({
           reply_id: r.reply_id,
@@ -363,24 +369,6 @@ export default function ReviewsPage() {
     }
   }
 
-  async function handlePublish(index: number) {
-    const item = results[index];
-    try {
-      // confirm 단계를 자동으로 처리 (draft → confirmed → published)
-      if (item.status === "draft") {
-        await confirmReply(item.reply_id);
-      }
-      await publishReply(item.reply_id);
-      updateResult(index, { status: "published" });
-      updateInlineResult(item.review_id, { status: "published" });
-      window.dispatchEvent(new CustomEvent("reply-published"));
-      // 게시 완료 후 미답변 목록 새로고침
-      await loadData();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "게시에 실패했습니다.");
-    }
-  }
-
   async function handleInlineQuickPublish(reviewId: number) {
     const item = inlineResults.get(reviewId);
     if (!item) return;
@@ -406,12 +394,23 @@ export default function ReviewsPage() {
   }
 
   async function handlePublishAll() {
-    const snapshot = results.map((r, i) => ({ ...r, _index: i }));
+    const snapshot = results.filter(r => r.status !== "published");
     for (const item of snapshot) {
-      if (item.status !== "published") {
-        await handlePublish(item._index);
+      try {
+        if (item.status === "draft") {
+          await confirmReply(item.reply_id);
+        }
+        await publishReply(item.reply_id);
+        // Update local state only, don't reload
+        setResults(prev => prev.map(r => r.reply_id === item.reply_id ? { ...r, status: "published" } : r));
+        updateInlineResult(item.review_id, { status: "published" });
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : "게시에 실패했습니다.");
+        break;
       }
     }
+    window.dispatchEvent(new CustomEvent("reply-published"));
+    await loadData();
   }
 
   const filteredGroups = useMemo(() => {
@@ -427,11 +426,7 @@ export default function ReviewsPage() {
     return filtered;
   }, [groups, ratingFilter]);
 
-  function updateResult(index: number, updates: Partial<GeneratedResult>) {
-    setResults((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, ...updates } : item))
-    );
-  }
+
 
   const totalUnreplied = groups.reduce((sum, g) => sum + g.reviews.length, 0);
   const filteredTotalUnreplied = filteredGroups.reduce((sum, g) => sum + g.reviews.length, 0);
@@ -442,6 +437,8 @@ export default function ReviewsPage() {
   const negativeCount = useMemo(() => allReviews.filter((r) => r.rating <= 2).length, [allReviews]);
   const inquiryCount = useMemo(() => allReviews.filter((r) => r.rating === 3).length, [allReviews]);
   const urgentCount = negativeCount; // 1-2점 = 긴급 대응 (동일 조건)
+  const publishedResults = useMemo(() => results.filter(r => r.status === "published"), [results]);
+  const pendingResults = useMemo(() => results.filter(r => r.status !== "published"), [results]);
   // keywords 제거됨 (UI에서 사용하지 않음)
 
   if (isLoadingData) {
@@ -567,13 +564,13 @@ export default function ReviewsPage() {
       <div className="border-t border-gray-200 my-6" />
 
       {/* ===== 1차: 생성 결과 검토 영역 (일괄 생성 결과, 인라인 결과와 별도) ===== */}
-      {results.filter((r) => r.status === "published").length > 0 && (
+      {publishedResults.length > 0 && (
         <div className="mb-6 border border-green-200 rounded-lg p-4 bg-green-50/50">
           <h2 className="text-sm font-bold text-green-700 mb-2">
-            게시 완료 ({results.filter((r) => r.status === "published").length}건)
+            게시 완료 ({publishedResults.length}건)
           </h2>
           <div className="space-y-1">
-            {results.filter((r) => r.status === "published").map((item) => (
+            {publishedResults.map((item) => (
               <div key={item.reply_id} className="text-xs text-green-600 flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
                 <span className="truncate">{item.review_text.length > 50 ? item.review_text.slice(0, 50) + "..." : item.review_text}</span>
@@ -584,10 +581,10 @@ export default function ReviewsPage() {
       )}
 
       {/* 일괄 관리 바 */}
-      {results.filter((r) => r.status !== "published").length > 0 && (
+      {pendingResults.length > 0 && (
         <div className="mb-4 flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5">
           <span className="text-sm font-medium text-amber-800">
-            생성된 답변 {results.filter((r) => r.status !== "published").length}건 검토 대기
+            생성된 답변 {pendingResults.length}건 검토 대기
           </span>
           <div className="flex gap-2">
             <button
@@ -750,35 +747,38 @@ export default function ReviewsPage() {
                                 role="button"
                                 tabIndex={0}
                                 onClick={() => {
+                                  const wasExpanded = expandedReviewIds.has(review.id);
                                   setExpandedReviewIds((prev) => {
                                     const next = new Set(prev);
                                     if (next.has(review.id)) {
                                       next.delete(review.id);
                                     } else {
                                       next.add(review.id);
-                                      // 아직 인라인 결과가 없으면 자동 생성 (톤 프로필 있을 때만)
-                                      if (!inlineResults.has(review.id) && hasToneProfile) {
-                                        handleInlineGenerate(review);
-                                      }
                                     }
                                     return next;
                                   });
+                                  // Generate outside state updater to avoid stale closure
+                                  if (!wasExpanded && !inlineResults.has(review.id) && hasToneProfile) {
+                                    handleInlineGenerate(review);
+                                  }
                                 }}
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter" || e.key === " ") {
                                     e.preventDefault();
+                                    const wasExpanded = expandedReviewIds.has(review.id);
                                     setExpandedReviewIds((prev) => {
                                       const next = new Set(prev);
                                       if (next.has(review.id)) {
                                         next.delete(review.id);
                                       } else {
                                         next.add(review.id);
-                                        if (!inlineResults.has(review.id) && hasToneProfile) {
-                                          handleInlineGenerate(review);
-                                        }
                                       }
                                       return next;
                                     });
+                                    // Generate outside state updater to avoid stale closure
+                                    if (!wasExpanded && !inlineResults.has(review.id) && hasToneProfile) {
+                                      handleInlineGenerate(review);
+                                    }
                                   }
                                 }}
                               >
@@ -873,11 +873,12 @@ export default function ReviewsPage() {
 
                                     {/* 3개 후보 가로 슬라이드 카드 */}
                                     {inlineResult.candidates && inlineResult.candidates.length > 1 && !inlineResult.isEditing && (
-                                      <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
+                                      <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory" role="listbox" aria-label="대댓글 후보 목록">
                                         {inlineResult.candidates.map((candidate, ci) => (
                                           <div
                                             key={ci}
-                                            role="button"
+                                            role="option"
+                                            aria-selected={inlineResult.selectedCandidate === ci}
                                             tabIndex={0}
                                             onClick={() => updateInlineResult(review.id, {
                                               selectedCandidate: ci,

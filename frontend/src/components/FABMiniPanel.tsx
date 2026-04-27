@@ -14,6 +14,9 @@ import {
   getToneProfile,
 } from "../lib/api";
 
+// NOTE: Generate/publish/tone logic is duplicated with dashboard/reviews/page.tsx
+// TODO: Extract shared useReplyGeneration hook for deduplication
+
 interface UnrepliedReview {
   id: number;
   product_id: number;
@@ -209,7 +212,7 @@ export default function FABMiniPanel() {
 
       {/* Mini Panel */}
       {isOpen && (
-        <div className="fixed bottom-24 right-6 w-[360px] h-[500px] bg-white rounded-lg shadow-2xl border border-gray-200 flex flex-col z-[9999] overflow-hidden">
+        <div className="fixed bottom-24 right-6 w-[360px] h-[500px] bg-white rounded-lg shadow-2xl border border-gray-200 flex flex-col z-[9999] overflow-hidden" onKeyDown={(e) => { if (e.key === "Escape") setIsOpen(false); }}>
           {/* Header */}
           <div className="bg-amber-500 text-white px-4 py-3 flex items-center justify-between flex-shrink-0">
             {selectedReview ? (
@@ -219,7 +222,7 @@ export default function FABMiniPanel() {
             ) : (
               <span className="font-semibold text-sm">리뷰 대댓글 에이전트</span>
             )}
-            <button onClick={() => setIsOpen(false)} className="text-white hover:opacity-80 text-lg" aria-label="패널 닫기">
+            <button autoFocus onClick={() => setIsOpen(false)} className="text-white hover:opacity-80 text-lg" aria-label="패널 닫기">
               ×
             </button>
           </div>
@@ -444,7 +447,7 @@ export default function FABMiniPanel() {
                                     // Update server with selected candidate content first
                                     try {
                                       await updateAgentReply(generatedReply.reply_id, c);
-                                    } catch {}
+                                    } catch { setError("후보 저장에 실패했습니다."); return; }
                                     setGeneratedReply({ ...generatedReply, selectedCandidate: ci, draft_reply: c });
                                     setEditContent(c);
                                     handlePublish(generatedReply.reply_id);

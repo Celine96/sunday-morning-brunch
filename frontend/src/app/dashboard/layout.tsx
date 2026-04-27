@@ -47,7 +47,11 @@ export default function DashboardLayout({
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/30 z-40 md:hidden"
+          role="button"
+          aria-label="사이드바 닫기"
+          tabIndex={0}
           onClick={() => setSidebarOpen(false)}
+          onKeyDown={(e) => { if (e.key === "Escape" || e.key === "Enter") setSidebarOpen(false); }}
         />
       )}
 

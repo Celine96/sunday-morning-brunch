@@ -7,7 +7,7 @@
         <mxCell id="1" parent="0"/>
 
         <!-- ===== 입력 주체 ===== -->
-        <mxCell id="dash_input" value="운영자 입력 (대시보드)&#xa;─────────────&#xa;리뷰 텍스트 직접 입력&#xa;단건 또는 일괄(CSV)" style="rounded=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;fontFamily=AppleGothic;spacingTop=2;" vertex="1" parent="1">
+        <mxCell id="dash_input" value="운영자 입력 (대시보드)&#xa;─────────────&#xa;상품별 리뷰 그루핑&#xa;체크박스 선택 + 일괄 생성" style="rounded=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;fontFamily=AppleGothic;spacingTop=2;" vertex="1" parent="1">
           <mxGeometry x="200" y="40" width="240" height="85" as="geometry"/>
         </mxCell>
 
@@ -30,12 +30,12 @@
         </mxCell>
 
         <!-- ===== LLM ===== -->
-        <mxCell id="llm" value="LLM 대댓글 생성 (Sonnet)&#xa;─────────────&#xa;브랜드 톤에 맞는&#xa;맥락별 맞춤 대댓글 생성" style="shape=process;whiteSpace=wrap;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;fontFamily=AppleGothic;spacingTop=2;strokeWidth=2;" vertex="1" parent="1">
+        <mxCell id="llm" value="LLM 대댓글 생성 (Haiku 4.5)&#xa;─────────────&#xa;브랜드 톤에 맞는&#xa;맥락별 맞춤 대댓글 후보 3개 생성" style="shape=process;whiteSpace=wrap;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;fontFamily=AppleGothic;spacingTop=2;strokeWidth=2;" vertex="1" parent="1">
           <mxGeometry x="460" y="550" width="240" height="85" as="geometry"/>
         </mxCell>
 
         <!-- ===== 초안 ===== -->
-        <mxCell id="draft" value="초안 생성&#xa;─────────────&#xa;AI가 생성한&#xa;대댓글 초안 표시" style="rounded=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;fontFamily=AppleGothic;spacingTop=2;" vertex="1" parent="1">
+        <mxCell id="draft" value="후보 선택&#xa;─────────────&#xa;AI가 생성한&#xa;대댓글 후보 3개 중 선택" style="rounded=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;fontFamily=AppleGothic;spacingTop=2;" vertex="1" parent="1">
           <mxGeometry x="460" y="720" width="240" height="85" as="geometry"/>
         </mxCell>
 

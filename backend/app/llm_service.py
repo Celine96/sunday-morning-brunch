@@ -177,7 +177,7 @@ async def generate_reply(
                         unique.append(r)
             except Exception:
                 pass
-        return unique[:num_candidates] if len(unique) >= num_candidates else unique + unique[:num_candidates - len(unique)]
+        return unique[:num_candidates]
     except Exception as e:
         print(f"Reply generation error: {e}")
         return _fallback_replies(review_text, sentiment, num_candidates)

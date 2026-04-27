@@ -7,7 +7,7 @@ from datetime import datetime
 # --- Product Schemas ---
 class ReplyOut(BaseModel):
     id: int
-    review_id: int
+    review_id: Optional[int] = None
     content: str
     author: str
     status: str

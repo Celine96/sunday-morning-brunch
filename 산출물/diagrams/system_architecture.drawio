@@ -63,7 +63,7 @@
         </mxCell>
 
         <!-- 외부 서비스 -->
-        <mxCell id="claude" value="Claude API&#xa;─────────────&#xa;Haiku: 감성 분류&#xa;Sonnet: 대댓글 생성" style="shape=process;whiteSpace=wrap;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;fontFamily=AppleGothic;spacingTop=2;" vertex="1" parent="1">
+        <mxCell id="claude" value="Claude API&#xa;─────────────&#xa;Haiku 4.5: 감성 분류&#xa;Haiku 4.5: 대댓글 생성" style="shape=process;whiteSpace=wrap;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;fontFamily=AppleGothic;spacingTop=2;" vertex="1" parent="1">
           <mxGeometry x="580" y="610" width="240" height="85" as="geometry"/>
         </mxCell>
 

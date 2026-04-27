@@ -202,6 +202,95 @@ TESER 브랜드 참고 이미지 제공 → "홈페이지 개선점 도출"
 
 Render (프론트: smb-web.onrender.com, 백엔드: sub-api-qq2o.onrender.com)
 
+## Phase 8: 2차 코드 리뷰 (4/26)
+
+프롬프트
+
+"시니어 엔지니어로서 코드베이스를 리뷰해" (2차)
+
+응답
+
+CRITICAL~LOW 총 20건 이슈 발견 및 전수 수정
+
+주요 수정 (Critical~High)
+
+- CORS 정규식을 특정 Render 서브도메인으로 제한 (보안 강화)
+- UnrepliedReview 스키마에 sentiment 필드 누락 수정
+- HistoryDetail.reply에 review_id, author, source 등 필드 보강
+- useMemo로 getFilteredGroups 최적화
+- batch 엔드포인트 flush + 단일 commit 통합
+- unpublish API 실제 연동 (mock → 실제 호출)
+- FAB handlePublish에 overrideReplyId 파라미터 추가 (비동기 상태 경합 방지)
+- 상품 상세 productId NaN 가드 추가
+
+접근성 수정 (A1~A7)
+
+aria-label, aria-pressed, SVG title, select label, sentiment bar ARIA 등 7건
+
+품질 수정 (Q2~Q7)
+
+undoTimer cleanup, 단일 이미지 갤러리 미표시, 데모 상태 주석, eslint-disable, 미사용 타입 제거, 함수명 public화
+
+## Phase 9: QA 전수 검사 (4/26)
+
+프롬프트
+
+"QA 리드로서 이 제품을 테스트해. 엣지 케이스, 에러 처리 누락, UI 깨짐을 심각도 순으로 정리해주세요"
+
+응답
+
+프론트엔드 코드 + 백엔드 API + 라이브 사이트 통합 테스트 3방향 점검 → CRITICAL 5 + HIGH 6 + MEDIUM 8 + LOW 10 = 29건 발견
+
+프롬프트
+
+"low까지 다 시급합니다. 당장 처리하죠"
+
+응답
+
+29건 전체 수정 완료
+
+CRITICAL 수정:
+
+- C1: API 타임아웃 30초→60초 (Render 콜드스타트 대응)
+- C2: FAB "바로 등록" stale closure — 후보 선택 후 서버에 updateAgentReply 호출 후 publish
+- C3: handlePublishAll 루프 중 배열 변경 → 스냅샷 기반 루프로 수정
+- C4: publish 엔드포인트 중복 게시 방지 체크 추가
+- C5: regenerate 시 원본 리뷰 없으면 400 에러 반환
+
+HIGH 수정:
+
+- H1: 감성 분류 톤 프리뷰 데이터 수정 ("교환 가능한가요?" → inquiry)
+- H2: Shop PUT /replies 히스토리 기록 누락 → ReplyHistory 기록 추가
+- H3: confirm 성공 후 publish 실패 시 롤백 처리 추가
+- H5: ReplyHistory FK cascade delete 추가
+- H6: ReplyCreate/Update 빈 문자열 검증 (min_length=1)
+
+MEDIUM 수정:
+
+- M1: batch 요청 최대 50건 제한
+- M2: batch source 개별 반영 (하드코딩 제거)
+- M3: unpublish 상태 체크 추가 (게시된 것만 취소 가능)
+- M4: FAB mountedRef 언마운트 안전장치
+- M5: FAB API 로드 Promise.allSettled 병렬화
+- M6: 톤 드롭다운 선택 후 리셋 제거
+- M8: "문의/중립" → "중립(3점)" 라벨 정확도 개선
+
+LOW 수정:
+
+- L1: SQLite FK PRAGMA 활성화
+- L2: deprecated datetime.utcnow() 제거
+- L3: reply.content None 가드
+- L4: content_snapshot/review_text 조건부 말줄임
+- L5: 빈 author 아바타 "?" 폴백
+- L6: formatDate 유틸 생성 (Invalid Date 방지)
+- L7: undoTimer useState → useRef 전환
+- L9: mainImageIdx 상품 변경 시 리셋
+- L10: CORS methods/headers 명시적 제한
+
+에러/디버깅 로그:
+
+- .next 캐시 손상 → "Cannot find module './682.js'" → .next 삭제 후 재빌드로 해결
+
 # 3. 설계 변경 이력 요약
 
 # 4. 사용한 AI 도구 및 기법
@@ -232,12 +321,14 @@ Render (프론트: smb-web.onrender.com, 백엔드: sub-api-qq2o.onrender.com)
 | 4/25 | 1차 검토 → 2차 반영 흐름 | PM 피드백: 즉시 반영이 아닌 검토 후 반영 |
 | 4/26 | 사이드바 올리브 → 주황색 | PM 요청: 브랜드 감성 |
 | 4/26 | 이모지 → Heroicons SVG | PM 피드백: AI 느낌 제거 |
+| 4/26 | 2차 코드 리뷰 20건 수정 | CORS 보안, 접근성, 최적화, 타입 안전성 |
+| 4/26 | QA 전수 검사 29건 수정 | stale closure, 상태 롤백, 입력 검증, FK cascade, 타임아웃 등 |
 
 | 도구 | 용도 |
 | --- | --- |
 | Claude Code (Opus 4.6) | 기획, 설계, 구현, 코드 리뷰, 배포 전 과정 |
 | Claude API (Haiku 4.5) | 리뷰 감성 분류 (프로덕트 내) |
-| Claude API (Sonnet 4) | 대댓글 생성 (프로덕트 내) |
+| Claude API (Haiku 4.5) | 대댓글 생성 (프로덕트 내, 초기 Sonnet → 속도 최적화로 Haiku 전환) |
 | Harness 플러그인 | 에이전트 팀 구성 (planner/designer/developer/qa) |
 | Graphviz → draw.io | 아키텍처 도식 생성 |
 | python-docx | 문서 산출물 자동 생성 |

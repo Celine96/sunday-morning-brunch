@@ -34,7 +34,7 @@
           <mxGeometry x="500" y="430" width="200" height="60" as="geometry"/>
         </mxCell>
 
-        <mxCell id="dash_input" value="리뷰 입력&#xa;(단건/일괄)" style="rounded=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;fontFamily=AppleGothic;" vertex="1" parent="1">
+        <mxCell id="dash_input" value="리뷰 선택&#xa;(상품별 그루핑/일괄)" style="rounded=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;fontFamily=AppleGothic;" vertex="1" parent="1">
           <mxGeometry x="500" y="550" width="200" height="60" as="geometry"/>
         </mxCell>
 
@@ -52,7 +52,7 @@
           <mxGeometry x="480" y="700" width="240" height="70" as="geometry"/>
         </mxCell>
 
-        <mxCell id="edit" value="초안 확인 / 수정" style="rounded=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;fontFamily=AppleGothic;" vertex="1" parent="1">
+        <mxCell id="edit" value="후보 3개 중 선택 / 수정" style="rounded=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;fontFamily=AppleGothic;" vertex="1" parent="1">
           <mxGeometry x="500" y="840" width="200" height="60" as="geometry"/>
         </mxCell>
 
@@ -117,7 +117,7 @@
         </mxCell>
 
         <!-- 공통 흐름 -->
-        <mxCell id="ue12" value="초안" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#333333;fontSize=10;fontFamily=AppleGothic;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="generate" target="edit" parent="1">
+        <mxCell id="ue12" value="후보 3개" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#333333;fontSize=10;fontFamily=AppleGothic;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="generate" target="edit" parent="1">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
         <mxCell id="ue13" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2.5;strokeColor=#333333;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="edit" target="satisfied" parent="1">
@@ -130,8 +130,8 @@
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
 
-        <!-- 피드백 루프: 재생성 -->
-        <mxCell id="ue16" value="재생성" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=1.5;strokeColor=#C84A4A;dashed=1;fontSize=10;fontFamily=AppleGothic;fontColor=#C84A4A;exitX=1;exitY=0.5;entryX=1;entryY=0.5;" edge="1" source="satisfied" target="generate" parent="1">
+        <!-- 피드백 루프: 말투 변경 -->
+        <mxCell id="ue16" value="말투 변경" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=1.5;strokeColor=#C84A4A;dashed=1;fontSize=10;fontFamily=AppleGothic;fontColor=#C84A4A;exitX=1;exitY=0.5;entryX=1;entryY=0.5;" edge="1" source="satisfied" target="generate" parent="1">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
               <mxPoint x="780" y="1015"/>

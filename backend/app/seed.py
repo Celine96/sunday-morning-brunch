@@ -55,11 +55,16 @@ def map_sentiment(score: float, review_type: str) -> str:
 
 def seed_database():
     """Create tables and seed data."""
-    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
 
     db = SessionLocal()
     try:
+        # Only seed if no products exist
+        if db.query(Product).count() > 0:
+            print("Database already seeded, skipping.")
+            db.close()
+            return
+
         # Load products
         products_path = os.path.join(DATA_DIR, "products_ko.csv")
         product_map = {}  # asin -> product_id

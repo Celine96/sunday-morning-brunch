@@ -279,7 +279,8 @@ def publish_reply(reply_id: int, db: Session = Depends(get_db)):
     if reply.status == "published":
         raise HTTPException(status_code=400, detail="이미 게시된 대댓글입니다.")
 
-    # Post to shop (internal - just update status since it's same DB)
+    # Note: Frontend handles confirm->publish flow. This endpoint allows
+    # publishing from any non-published status for flexibility.
     reply.status = "published"
     reply.published_at = datetime.now(timezone.utc)
     reply.updated_at = datetime.now(timezone.utc)
@@ -336,6 +337,7 @@ async def regenerate_reply(reply_id: int, db: Session = Depends(get_db)):
         sentiment=sentiment,
         system_prompt=profile.system_prompt,
         rating=review.rating,
+        num_candidates=1,
     )
     new_draft = candidates[0] if isinstance(candidates, list) else candidates
 
@@ -369,7 +371,6 @@ def get_history(
     total = base_query.count()
     replies = (
         base_query
-        .outerjoin(Review, Reply.review_id == Review.id)
         .options(joinedload(Reply.review))
         .order_by(Reply.created_at.desc())
         .offset((page - 1) * page_size)

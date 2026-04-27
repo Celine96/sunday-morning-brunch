@@ -249,6 +249,8 @@ export default function ToneSettingsPage() {
               <span className="text-xs text-gray-400 ml-1">(선택, 3~5개)</span>
             </label>
             <div className="grid grid-cols-1 gap-3">
+              {/* Note: Using index as key. Sample deletion re-indexes, which may cause
+                  brief textarea flash. Acceptable for demo scope. */}
               {sampleReplies.map((sample, i) => (
                 <div key={i} className="relative bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
                   <div className="flex items-center justify-between mb-2">
