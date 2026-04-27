@@ -74,8 +74,8 @@ export default function ReviewsPage() {
   // 인라인 생성: 리뷰 ID → 생성 결과 매핑
   const [inlineResults, setInlineResults] = useState<Map<number, GeneratedResult>>(new Map());
   const [inlineLoading, setInlineLoading] = useState<Set<number>>(new Set());
-  // 확장된 리뷰 카드 (클릭하여 인라인 AI 생성)
-  const [expandedReviewId, setExpandedReviewId] = useState<number | null>(null);
+  // 확장된 리뷰 카드 (클릭하여 인라인 AI 생성) — Set으로 다중 펼침 지원
+  const [expandedReviewIds, setExpandedReviewIds] = useState<Set<number>>(new Set());
   // 톤 프로필 설정 여부
   const [hasToneProfile, setHasToneProfile] = useState<boolean>(true);
   // Undo 토스트
@@ -250,6 +250,12 @@ export default function ReviewsPage() {
       });
       // 기존 results에도 추가 (일괄 관리용)
       setResults((prev) => [...newResults, ...prev]);
+      // 생성된 리뷰 카드를 자동으로 펼쳐서 후보 3개 확인 가능하게
+      setExpandedReviewIds((prev) => {
+        const next = new Set(prev);
+        newResults.forEach((r) => next.add(r.review_id));
+        return next;
+      });
       // 생성 완료된 리뷰는 선택 해제
       setSelectedReviews(new Set());
     } catch (e: unknown) {
@@ -721,7 +727,7 @@ export default function ReviewsPage() {
                     <div className="divide-y divide-gray-100">
                       {group.reviews.map((review) => {
                         const inlineResult = inlineResults.get(review.id);
-                        const isExpanded = expandedReviewId === review.id;
+                        const isExpanded = expandedReviewIds.has(review.id);
                         const isInlineLoading = inlineLoading.has(review.id);
 
                         return (
@@ -743,27 +749,35 @@ export default function ReviewsPage() {
                                 role="button"
                                 tabIndex={0}
                                 onClick={() => {
-                                  if (expandedReviewId === review.id) {
-                                    setExpandedReviewId(null);
-                                  } else {
-                                    setExpandedReviewId(review.id);
-                                    // 아직 인라인 결과가 없으면 자동 생성 (톤 프로필 있을 때만)
-                                    if (!inlineResults.has(review.id) && hasToneProfile) {
-                                      handleInlineGenerate(review);
-                                    }
-                                  }
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter" || e.key === " ") {
-                                    e.preventDefault();
-                                    if (expandedReviewId === review.id) {
-                                      setExpandedReviewId(null);
+                                  setExpandedReviewIds((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(review.id)) {
+                                      next.delete(review.id);
                                     } else {
-                                      setExpandedReviewId(review.id);
+                                      next.add(review.id);
+                                      // 아직 인라인 결과가 없으면 자동 생성 (톤 프로필 있을 때만)
                                       if (!inlineResults.has(review.id) && hasToneProfile) {
                                         handleInlineGenerate(review);
                                       }
                                     }
+                                    return next;
+                                  });
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    setExpandedReviewIds((prev) => {
+                                      const next = new Set(prev);
+                                      if (next.has(review.id)) {
+                                        next.delete(review.id);
+                                      } else {
+                                        next.add(review.id);
+                                        if (!inlineResults.has(review.id) && hasToneProfile) {
+                                          handleInlineGenerate(review);
+                                        }
+                                      }
+                                      return next;
+                                    });
                                   }
                                 }}
                               >
